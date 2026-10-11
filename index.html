@@ -1,0 +1,293 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Linewright</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/app.css">
+
+<div class="wrap">
+<header>
+  <div class="ttl">
+    <h1>Linewright</h1>
+    <p>Your room to scale, in plan and in perspective. Place furniture, pick a viewpoint, then copy the lines.</p>
+  </div>
+  <div class="hdr-act">
+    <button id="b-new" type="button" title="Clear everything and start over">New</button>
+    <button id="b-import" type="button">Import</button>
+    <input id="f-import" type="file" accept=".json,application/json" hidden>
+    <button id="b-export" type="button">Export</button>
+    <button id="b-settings" type="button" aria-pressed="false">Settings</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="drawing">
+    <div class="viewbar">
+      <div class="seg" role="tablist" aria-label="View">
+        <button role="tab" type="button" id="vb-plan" data-viewbtn="plan">Plan</button>
+        <button role="tab" type="button" id="vb-persp" data-viewbtn="persp">Perspective</button>
+        <button role="tab" type="button" id="vb-sheet" data-viewbtn="sheet">Sheet</button>
+      </div>
+    </div>
+    <div class="toolbar tools" role="toolbar" aria-label="Tools" data-only="plan persp">
+      <button type="button" data-tool="select" title="Select and move (V)">Select</button>
+      <button type="button" data-tool="wall" data-only="plan" title="Draw walls (W)">Wall</button>
+      <button type="button" data-tool="room" data-only="plan" title="Draw a room outline (Shift+W)">Room</button>
+      <button type="button" data-tool="door" data-only="plan" title="Add a door on a wall (O)">Door</button>
+      <button type="button" data-tool="window" data-only="plan" title="Add a window on a wall (Shift+O)">Window</button>
+      <span class="fxpick" data-only="plan"><button type="button" data-tool="fixture" title="Add a fixture (F)">Fixture</button><select id="fx-type" aria-label="Fixture type"><option value="outlet">Outlet</option><option value="switch">Switch</option><option value="wlight">Wall light</option><option value="clight">Ceiling light</option><option value="strip">Power strip</option></select></span>
+      <button type="button" data-tool="mark" data-only="plan" title="Add a reference line (E)">Line</button>
+      <span class="sep"></span>
+      <button type="button" data-tool="measure" title="Measure (M)">Measure</button>
+      <button id="b-clr" type="button" aria-pressed="false" title="Clearance zones (Shift+C)">Clearances</button>
+      <button id="b-paper" type="button" aria-pressed="false" data-only="persp" title="Paper frame (P)">Paper frame</button>
+    </div>
+    <div class="toolbar" role="toolbar" aria-label="Edit">
+      <button id="b-undo" type="button">Undo</button>
+      <button id="b-redo" type="button">Redo</button>
+      <span class="sep" data-only="plan persp"></span>
+      <button id="b-copy" type="button" data-only="plan persp">Copy</button>
+      <button id="b-paste" type="button" data-only="plan persp">Paste</button>
+      <button id="b-dup" type="button" data-only="plan persp">Duplicate</button>
+      <button id="b-rot" type="button" data-only="plan persp">Rotate 90°</button>
+      <button id="b-rot15" type="button" data-only="plan persp">Rotate 15°</button>
+      <button id="b-del" type="button" data-only="plan persp">Delete</button>
+      <button id="b-group" type="button" data-only="plan persp">Group</button>
+      <button id="b-ungroup" type="button" data-only="plan persp">Ungroup</button>
+      <button id="b-hide" type="button" data-only="plan persp">Hide</button>
+      <button id="b-locksel" type="button" data-only="plan persp">Lock</button>
+      <span class="sep" data-only="plan persp"></span>
+      <button id="b-tags" type="button" aria-pressed="false" data-only="plan persp">Tag colours</button>
+      <button id="b-labels" type="button" aria-pressed="false" data-only="plan persp">Labels</button>
+      <button id="b-grid" type="button" aria-pressed="false" data-only="plan persp">Grid</button>
+      <span class="sep" data-only="persp"></span>
+      <button id="b-trace" type="button" aria-pressed="false" data-only="persp">Trace</button>
+      <span class="glowpick" data-only="persp"><button id="glow-btn" type="button" aria-expanded="false" aria-pressed="false" title="Pick tags, kinds or items that glow in trace mode">Glow</button><div id="glow-pop" class="glowpop" hidden></div></span>
+      <button id="b-lock" type="button" aria-pressed="false" data-only="persp">Lock camera</button>
+    </div>
+    <div class="stage" id="stage">
+      <div class="board" id="board-p"><canvas id="cv" width="1200" height="900" aria-label="Perspective drawing of the room"></canvas></div>
+      <div class="board" id="board-v"><span class="tag">Plan</span><canvas id="pv" width="300" height="600" aria-label="Top-down plan of the room"></canvas></div>
+      <div class="board sheet" id="board-s" hidden>
+        <p class="note sheet-warn np" id="sheet-warn" hidden></p>
+        <div class="sheet-page" id="sheet-draw"></div>
+        <div class="sheet-grid">
+          <section class="spanel"><h2>Spec</h2><div id="sheet-spec"></div></section>
+          <div class="sheet-col">
+            <section class="spanel"><h2>Project notes</h2><div id="sheet-notes"></div></section>
+            <section class="spanel"><h2>Cut list</h2><div id="sheet-cuts"></div></section>
+            <section class="spanel"><h2>Tags</h2><div id="sheet-legend"></div></section>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="legend" id="legend" hidden></div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="status warn" id="warn" hidden></div>
+  </div>
+
+  <aside class="panel">
+    <div class="ptabs" role="tablist" aria-label="Panels" id="ptabs"></div>
+
+    <section class="tabpanel" data-panel="camera">
+      <fieldset>
+        <legend>Viewpoints</legend>
+        <div class="chips">
+          <button id="b-reset" type="button" title="Shortcut: Home">Reset view</button>
+          <button data-view="door" type="button">From the doorway</button>
+          <button data-view="sketch" type="button">Like your sketch</button>
+          <button data-view="corner" type="button">Right corner</button>
+          <button data-view="top" type="button">Standing high</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Camera (metres)</legend>
+        <div class="row"><label for="cx">Left ↔ right</label><input id="cx" type="range" step="0.01"><output id="o-cx"></output></div>
+        <div class="row"><label for="cz">Distance back</label><input id="cz" type="range" step="0.01"><output id="o-cz"></output></div>
+        <div class="row"><label for="eye">Eye height</label><input id="eye" type="range" min="0.3" max="2.4" step="0.01"><output id="o-eye"></output></div>
+        <div class="row"><label for="yaw">Turn</label><input id="yaw" type="range" min="-180" max="180" step="0.5"><output id="o-yaw"></output></div>
+        <div class="row"><label for="fov">Lens width</label><input id="fov" type="range" min="40" max="100" step="1"><output id="o-fov"></output></div>
+        <p class="note">Keys: <kbd>↑</kbd><kbd>↓</kbd> walk, <kbd>←</kbd><kbd>→</kbd> turn, <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> step sideways, <kbd>PgUp</kbd><kbd>PgDn</kbd> eye height. You can also drag the camera dot in the plan.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Show</legend>
+        <div class="toggles">
+          <label><input id="t-guides" type="checkbox"> Perspective guides</label>
+          <label><input id="t-trace" type="checkbox"> Trace mode</label>
+          <label><input id="t-lock" type="checkbox"> Lock camera</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Paper frame</legend>
+        <div id="cam-paper" style="display:grid;gap:8px"></div>
+        <p class="note">Frames the view as a sheet of paper with a 1 cm grid, to copy square by square. The dotted floor line is where the picture is at the chosen scale.</p>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="rooms">
+      <div id="rooms-host" style="display:contents">
+      <fieldset id="psel-f" hidden>
+        <legend id="psel-lg">Selected</legend>
+        <div id="psel-body" style="display:grid;gap:8px"></div>
+      </fieldset>
+      </div>
+      <fieldset>
+        <legend>Rooms</legend>
+        <div id="room-body" style="display:grid;gap:8px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Walls</legend>
+        <div class="list" id="walls-body"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Doors and windows</legend>
+        <div id="ops-body" style="display:grid;gap:10px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Fixtures</legend>
+        <div class="list" id="fx-body"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Reference lines</legend>
+        <div class="list" id="marks-body"></div>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="pfx">
+      <div id="pfx-host" style="display:contents"></div>
+      <fieldset>
+        <legend>Add a fixture</legend>
+        <div id="pfx-add" style="display:grid;gap:8px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Fixtures</legend>
+        <div class="list" id="pfx-list"></div>
+        <p class="note">Click a fixture here or its outline on the drawing to edit it. Locked fixtures can't be dragged or deleted; fixtures on an object always follow the object.</p>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="sheet">
+      <fieldset>
+        <legend>Sheet</legend>
+        <label class="fl" for="sh-title">Title</label><input id="sh-title" class="tx">
+        <div id="sheet-paper" style="display:grid;gap:8px"></div>
+        <div class="chips"><button id="b-print" type="button">Print sheet</button></div>
+        <p class="note">Printing at 100% (no "fit to page") keeps the drawings at the chosen scale.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Elevations</legend>
+        <div id="sh-elev" style="display:grid;gap:4px"></div>
+        <div class="row"><label for="sh-depth">Depth shown</label><input id="sh-depth" type="range" min="0.2" max="4" step="0.05"><output id="o-sh-depth"></output></div>
+        <p class="note">Each elevation looks at the wall from inside the room and shows what stands within that distance of it.</p>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="objects">
+      <fieldset>
+        <legend>Selection</legend>
+        <div id="insp" style="display:grid;gap:8px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Add</legend>
+        <div class="addlist" id="add-chips"></div>
+        <p class="note">Metres. x from the left wall, y from the floor, z from the window wall. Wall shelves and cabinets start on the back wall; things that stand on a desk start at desk height (Shift-drag onto the desk to attach them).</p>
+      </fieldset>
+      <fieldset>
+        <legend>Scenarios</legend>
+        <div id="scen-body" style="display:grid;gap:8px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Objects</legend>
+        <div class="list" id="olist"></div>
+        <p class="note">Double-click a name to rename it.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Cut list</legend>
+        <div id="cuts" style="display:grid;gap:8px"></div>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="layers">
+      <fieldset>
+        <legend>Image layers</legend>
+        <p class="note">Drop images on the drawing or choose files. While this panel is open, click an image on the drawing to select it, drag to move, drag a corner to resize, drag the round handle to rotate (Shift snaps 15°).</p>
+        <div class="chips">
+          <label class="btn" for="file">Add images…</label>
+          <input id="file" type="file" accept="image/*" multiple hidden>
+          <label class="inl"><input id="t-lock2" type="checkbox"> Lock camera</label>
+        </div>
+        <p class="note" id="store-note"></p>
+        <div class="list" id="llist"></div>
+      </fieldset>
+      <fieldset id="lprops-f" hidden>
+        <legend>Selected layer</legend>
+        <div class="lprops" id="lprops"></div>
+      </fieldset>
+    </section>
+
+    <section class="tabpanel" data-panel="settings">
+      <div class="sethead"><h2>Settings</h2><button id="b-settings-close" type="button">Done</button></div>
+      <fieldset>
+        <legend>Snapping</legend>
+        <div class="row"><label for="snap">Grid step</label><select id="snap"><option value="0.01">1 cm</option><option value="0.05">5 cm</option><option value="0.1">10 cm</option></select><span></span></div>
+        <p class="note">Boxes also snap to walls (angled walls too: to their face) and to the faces of other unrotated boxes. Hold <kbd>Alt</kbd> while dragging to place or rotate freely. Walls are drawn in 15° steps; <kbd>Shift</kbd>-drag a wall end to move that corner freely.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Tags</legend>
+        <div id="tags" style="display:grid;gap:4px"></div>
+        <div class="tagadd">
+          <input id="tag-new" class="tx" placeholder="New tag name" aria-label="New tag name">
+          <input id="tag-col" type="color" value="#8a5a2b" aria-label="New tag colour">
+          <button id="tag-add" type="button">Add tag</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Import from text</legend>
+        <textarea id="imp-text" class="tx" rows="4" placeholder="Paste exported JSON here" aria-label="Project JSON"></textarea>
+        <div class="chips"><button id="imp-go" type="button">Import pasted JSON</button></div>
+        <p class="note">Import replaces the room and objects. Image layers stay. Undo brings back the previous project.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Keyboard shortcuts</legend>
+        <p class="note">Click a key, then press the new key or combination. <kbd>Esc</kbd> cancels.</p>
+        <div id="keys" style="display:grid;gap:4px"></div>
+        <div class="chips"><button id="keys-reset" type="button">Reset to defaults</button></div>
+      </fieldset>
+    </section>
+  </aside>
+</div>
+
+
+</div>
+
+<div class="dlg-back" id="new-dlg" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="new-h">
+    <h2 id="new-h">Start a new project?</h2>
+    <p class="note">This clears the walls, furniture, fixtures, notes, scenarios and image layers. Tags, shortcuts and settings stay. Export first if you want a copy you can import later. Undo also brings the current project back until you close the page.</p>
+    <div style="display:grid;gap:6px">
+      <label class="inl"><input type="radio" name="new-kind" id="new-room" checked> Start with a room, a window and an entrance door</label>
+      <div class="ig"><label for="new-w"><span>Width (m)</span><input id="new-w" type="number" step="0.05" min="0.5" value="4"></label><label for="new-d"><span>Depth (m)</span><input id="new-d" type="number" step="0.05" min="0.5" value="5"></label></div>
+      <label class="inl"><input type="radio" name="new-kind" id="new-empty"> Start empty and draw the walls</label>
+    </div>
+    <div class="chips"><button id="new-export" type="button">Export, then start new</button><button id="new-go" type="button">Start new without saving</button><button id="new-cancel" type="button">Cancel</button></div>
+  </div>
+</div>
+
+<script src="js/state.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/render.js"></script>
+<script src="js/layers.js"></script>
+<script src="js/warp.js"></script>
+<script src="js/cammatch.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/interact.js"></script>
+<script src="js/attach.js"></script>
+<script src="js/scenarios.js"></script>
+<script src="js/fixtures.js"></script>
+<script src="js/build.js"></script>
+<script src="js/measure.js"></script>
+<script src="js/cutlist.js"></script>
+<script src="js/paper.js"></script>
+<script src="js/sheet.js"></script>
+<script src="js/ui.js"></script>
+
+</body></html>
