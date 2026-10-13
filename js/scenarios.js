@@ -9,9 +9,9 @@
 
 let GHOST=[];   // ghost objects for this frame (computed in drawAll)
 
-function scCapture(){const pos={},grp={},done=new Set(),r4=v=>+(+v).toFixed(4);
-  for(const o of S.objects){
-    if(o.g){if(done.has(o.g))continue;done.add(o.g);const g=grpById(o.g),ms=members(o.g);if(!g||!ms.length)continue;const b=bbox(ms);
+function scCapture(objs,groups){objs=objs||S.objects;groups=groups||S.groups;const pos={},grp={},done=new Set(),r4=v=>+(+v).toFixed(4);
+  for(const o of objs){
+    if(o.g){if(done.has(o.g))continue;done.add(o.g);const g=groups.find(x=>x.id===o.g),ms=objs.filter(x=>x.g===o.g);if(!g||!ms.length)continue;const b=bbox(ms);
       grp[o.g]={x0:r4(b.x0),y0:r4(b.y0),z0:r4(b.z0),rot:r4(g.rot||0),vis:g.vis!==false};}
     else pos[o.id]={cx:r4(o.x+o.w/2),cz:r4(o.z+o.d/2),y:r4(o.y),a:r4(absYaw(o)),vis:o.vis!==false};}
   return{pos,grp};}

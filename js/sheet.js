@@ -36,17 +36,21 @@ function planSVG(it,k){const b=it.b,M=(x,z)=>[it.x+it.pm+(x-b.x0)*k,it.y+it.pm+(
     const A=M(bb.x0,bb.z0),w=(bb.x1-bb.x0)*k,h=(bb.z1-bb.z0)*k;if(fitsText(nm,w-1,2.1)&&h>3.2)s+=shText(A[0]+0.8,A[1]+2.8,nm,{fs:2.1,fill:shTagCol(effTag(o))});}
   for(const r of S.rooms){if(!r.pts||r.pts.length<3)continue;const c=polyInner(r.pts),p=M(c[0],c[1]);s+=shText(p[0],p[1],r.name||'Room',{fs:3,anchor:'middle',fill:SH_MUTED,w:500});}
   for(const w of S.walls){const L=wallLen(w),u=wallU(w),Q=t=>M(w.a[0]+u[0]*t,w.a[1]+u[1]*t),seg=(t0,t1,sw,col)=>{const A=Q(t0),B=Q(t1);return`<line x1="${r2(A[0])}" y1="${r2(A[1])}" x2="${r2(B[0])}" y2="${r2(B[1])}" stroke="${col||SH_INK}" stroke-width="${sw}" stroke-linecap="square"/>`;};
+    const wood=w.type==='wood',nw=wallN(w),wseg=(ta,tb)=>{if(!wood)return seg(ta,tb,0.7);
+      const A=Q(ta),B=Q(tb),o=[nw[0]*0.7,nw[1]*0.7],ln=(P1,P2)=>`<line x1="${r2(P1[0])}" y1="${r2(P1[1])}" x2="${r2(P2[0])}" y2="${r2(P2[1])}" stroke="${SH_INK}" stroke-width="0.3"/>`;
+      return ln([A[0]+o[0],A[1]+o[1]],[B[0]+o[0],B[1]+o[1]])+ln([A[0]-o[0],A[1]-o[1]],[B[0]-o[0],B[1]-o[1]])+ln([A[0]+o[0],A[1]+o[1]],[A[0]-o[0],A[1]-o[1]])+ln([B[0]+o[0],B[1]+o[1]],[B[0]-o[0],B[1]-o[1]]);};
     const ops=S.openings.filter(o=>o.wall===w.id).sort((a,c)=>a.off-c.off);let t=0;
-    for(const o of ops){const t0=clamp(o.off,0,L),t1=clamp(o.off+o.w,0,L);if(t0>t)s+=seg(t,t0,0.7);t=Math.max(t,t1);
+    for(const o of ops){const t0=clamp(o.off,0,L),t1=clamp(o.off+o.w,0,L);if(t0>t)s+=wseg(t,t0);t=Math.max(t,t1);
       if(o.type==='window'){const n=wallN(w),A=Q(t0),B=Q(t1),e=0.9;s+=`<polygon points="${r2(A[0]-n[0]*e)},${r2(A[1]-n[1]*e)} ${r2(B[0]-n[0]*e)},${r2(B[1]-n[1]*e)} ${r2(B[0]+n[0]*e)},${r2(B[1]+n[1]*e)} ${r2(A[0]+n[0]*e)},${r2(A[1]+n[1]*e)}" fill="rgba(80,150,210,.18)" stroke="${SH_INK}" stroke-width="0.2"/>`;}
       else{const g=doorGeom(o,w),H=M(g.H[0],g.H[1]),T=M(g.H[0]+g.d1[0]*g.r,g.H[1]+g.d1[1]*g.r),C0=M(g.H[0]+g.d0[0]*g.r,g.H[1]+g.d0[1]*g.r),cr=g.d0[0]*g.d1[1]-g.d0[1]*g.d1[0];
         s+=`<line x1="${r2(H[0])}" y1="${r2(H[1])}" x2="${r2(T[0])}" y2="${r2(T[1])}" stroke="${SH_INK}" stroke-width="0.3"/><path d="M${r2(T[0])} ${r2(T[1])} A${r2(g.r*k)} ${r2(g.r*k)} 0 0 ${cr>0?0:1} ${r2(C0[0])} ${r2(C0[1])}" fill="none" stroke="${SH_MUTED}" stroke-width="0.2" stroke-dasharray="1 1"/>`;
         if(o.entrance){const c=Q((t0+t1)/2),n=wallN(w),si=wallIn(w);s+=shText(c[0]-n[0]*si*3,c[1]-n[1]*si*3+0.8,'entrance',{fs:2,anchor:'middle',fill:'var(--guide)'});}}}
-    if(t<L)s+=seg(t,L,0.7);
+    if(t<L)s+=wseg(t,L);
     /* stored wall length, written outside the room */
     const si=wallIn(w),n=wallN(w),c=Q(L/2),o2=[c[0]-n[0]*si*3.2,c[1]-n[1]*si*3.2],ang=Math.atan2(u[1],u[0])*180/Math.PI,rot=ang>90||ang<-90?ang+180:ang;
     s+=shText(o2[0],o2[1]+0.8,fmt(L),{fs:2.4,anchor:'middle',rot:Math.abs(rot)<0.01?0:rot});}
-  for(const f of S.fixtures)if(fxVisible(f))s+=fxSvgPlan(f,M,shTagCol(f.tag));
+  for(const f of S.fixtures)if(fxVisible(f)){s+=fxSvgPlan(f,M,shTagCol(f.tag));
+    const A=fxPlan(f);if(A){const P=M(A.p[0],A.p[1]),n=A.n||[0.7,-0.7];s+=shText(P[0]+n[0]*5.4,P[1]+n[1]*5.4+0.6,'F'+fxNum(f),{fs:1.8,anchor:'middle',fill:SH_MUTED});}}
   return s;}
 
 function elevSVG(it,k){const w=it.wall,e=it.e,L=wallLen(w),H=wallH(w),u=wallU(w),n=wallN(w),sg=wallIn(w)*(e.flip?-1:1),dep=+S.sheet.depth||1.2;
@@ -54,6 +58,8 @@ function elevSVG(it,k){const w=it.wall,e=it.e,L=wallLen(w),H=wallH(w),u=wallU(w)
   const rect=(t0,t1,y0,y1,a)=>{const x0=Math.min(X(t0),X(t1)),x1=Math.max(X(t0),X(t1));return`<rect x="${r2(x0)}" y="${r2(Y(y1))}" width="${r2(x1-x0)}" height="${r2((y1-y0)*k)}" ${a}/>`;};
   s+=`<line x1="${r2(X(0))}" y1="${r2(Y(H))}" x2="${r2(X(L))}" y2="${r2(Y(H))}" stroke="${SH_LINE}" stroke-width="0.25" stroke-dasharray="2 1.4"/>`;
   s+=shText(Math.min(X(0),X(L))+1,Y(H)-1,`ceiling ${fmt(H)}`,{fs:2.1,fill:SH_MUTED});
+  for(const[t0,y0,t1,y1]of wallPat(w))s+=`<line x1="${r2(X(t0))}" y1="${r2(Y(y0))}" x2="${r2(X(t1))}" y2="${r2(Y(y1))}" stroke="${SH_MUTED}" stroke-width="0.12"/>`;
+  if(w.type==='wood')s+=shText(Math.max(X(0),X(L))-1,Y(H)-1,`wood · ${WALL_STYLES[w.style]||''}`,{fs:2.1,fill:SH_MUTED,anchor:'end'});
   /* objects in front of the wall within the depth band, far ones first */
   const vis=[];
   for(const o of S.objects){if(!visible(o)||o.h<=0)continue;const cs=foot(o),ts=cs.map(c=>(c[0]-w.a[0])*u[0]+(c[1]-w.a[1])*u[1]),dn=cs.map(c=>((c[0]-w.a[0])*n[0]+(c[1]-w.a[1])*n[1])*sg);
@@ -75,12 +81,13 @@ function elevSVG(it,k){const w=it.wall,e=it.e,L=wallLen(w),H=wallH(w),u=wallU(w)
       const hx=X(o.hinge==='a'?t0:t1),fx=X(o.hinge==='a'?t1:t0);
       s+=`<path d="M${r2(fx)} ${r2(Y(o.h))} L${r2(hx)} ${r2(Y(o.h/2))} L${r2(fx)} ${r2(Y(0))}" fill="none" stroke="${SH_MUTED}" stroke-width="0.2" stroke-dasharray="1 1"/>`;
       s+=shText(Math.min(X(t0),X(t1))+0.8,Y(o.h)-1,`door ${fmtIn(o.w)} × ${fmtIn(o.h)}${o.entrance?' · entrance':''}`,{fs:2,fill:SH_MUTED});}}
-  for(const f of S.fixtures){if(!fxVisible(f)||FX[f.type].ceil)continue;
+  const fnum=(f,cx,cy)=>shText(cx,cy-fxSize(f).h/2*k-0.7,'F'+fxNum(f),{fs:1.7,anchor:'middle',fill:SH_MUTED});
+  for(const f of S.fixtures){if(!fxVisible(f)||isFlat(f))continue;
     if(f.obj){/* on an object in the depth band, on a face turned towards the viewer */
       const A=fxPlan(f);if(!A||!visible(A.o))continue;const vn=[n[0]*sg,n[1]*sg];if(A.n[0]*vn[0]+A.n[1]*vn[1]<0.5)continue;
       const t=(A.p[0]-w.a[0])*u[0]+(A.p[1]-w.a[1])*u[1],dn=(A.p[0]-w.a[0])*vn[0]+(A.p[1]-w.a[1])*vn[1];if(t<0||t>L||dn<-1e-3||dn>dep)continue;
-      s+=fxSvgElev(f,X(t),Y(fxY(f)),k,shTagCol(f.tag));continue;}
-    if(f.wall!==w.id)continue;s+=fxSvgElev(f,X(f.off),Y(f.y),k,shTagCol(f.tag));}
+      s+=fxSvgElev(f,X(t),Y(fxY(f)),k,shTagCol(f.tag))+fnum(f,X(t),Y(fxY(f)));continue;}
+    if(f.wall!==w.id)continue;s+=fxSvgElev(f,X(f.off),Y(f.y),k,shTagCol(f.tag))+fnum(f,X(f.off),Y(f.y));}
   s+=`<path d="M${r2(X(0))} ${r2(Y(H))} V${r2(Y(0))} H${r2(X(L))} V${r2(Y(H))}" fill="none" stroke="${SH_INK}" stroke-width="0.6"/>`;
   return s;}
 
@@ -105,8 +112,25 @@ function specRows(){const rows=[],done=new Set();
     if(o.g){if(done.has(o.g))continue;done.add(o.g);const g=grpById(o.g),ms=members(o.g),b=bbox(ms),pp=g&&g.preset&&g.preset.p;
       rows.push({n:g?g.n:'Group',tag:g?g.tag:'',size:pp?[pp.width,pp.depth,pp.height]:[b.x1-b.x0,b.z1-b.z0,b.y1-b.y0],y:[b.y0,b.y1],notes:g?g.notes:'',kind:g&&g.preset?(PRESETS[g.preset.type]?.label||''):'group'});}
     else rows.push({n:o.n,tag:o.tag,size:[o.w,o.d,o.h],y:[o.y,o.y+o.h],notes:o.notes,kind:o.parent?'on '+parentName(o):''});}
-  for(const f of S.fixtures){if(!fxVisible(f))continue;const T=FX[f.type],Z=fxSize(f);rows.push({n:f.n,tag:f.tag,size:[Z.w,null,Z.h],y:T.ceil?null:[fxY(f),null],notes:f.notes,kind:fxLabel(f)+' · '+fxWhere(f).replace(/ · [\d.]+ high$/,'')+(f.obj?` · ${fmt(f.y)} up the face`:'')});}
+  S.walls.forEach((w,i)=>{if(w.type!=='wood')return;const sl=w.style==='slats'||w.style==='hslats',n=sl?Math.floor(wallLen(w)/((w.sw||0.05)+(w.sg||0))):0;
+    rows.push({n:`Wall ${i+1} · wood`,tag:'',size:[wallLen(w),null,wallH(w)],y:[0,wallH(w)],kind:'wall finish',
+      notes:`${WALL_STYLES[w.style]||''}${w.style==='panel'?'':`, ${w.style==='boards'?'boards':'slats'} ${fmtIn(+(w.sw*1000).toFixed(1))} mm`}${sl&&w.sg>0?`, gap ${fmtIn(+(w.sg*1000).toFixed(1))} mm`:''}${n?` · about ${n} slats`:''}`});});
   return rows;}
+/* fixtures: numbered F1, F2… by their place in the project (the number stays when others are hidden), grouped by type */
+const fxNum=f=>S.fixtures.indexOf(f)+1;
+function fixturesHTML(){const all=S.fixtures,vis=all.filter(fxVisible),hid=all.length-vis.length;
+  if(!all.length)return'<p class="note">No fixtures yet.</p>';
+  if(!vis.length)return`<p class="note">${hid} fixture${hid>1?'s are':' is'} hidden.</p>`;
+  const where=f=>fxTop(f)?`on ${esc(objLabel(byId(f.obj)))} · top`:FX[f.type].flat?`${FX[f.type].floor?'floor':'ceiling'} · ${fmt(f.x)}, ${fmt(f.z)}`:f.obj?`on ${esc(objLabel(byId(f.obj)))} · ${faceName(byId(f.obj),f.face).toLowerCase()} · ${fmt(f.off)} along`:
+    `wall ${S.walls.indexOf(wallById(f.wall))+1} · ${fmt(f.off)} from start`,
+    high=f=>fxTop(f)?fmt(fxY(f)):FX[f.type].flat?(FX[f.type].floor?'floor':'ceiling'):f.obj?fmt(fxY(f)):fmt(f.y);
+  let h='<table class="tbl"><tr><th>No.</th><th>Fixture</th><th>Where</th><th>Height</th><th>Notes</th></tr>';
+  for(const type of Object.keys(FX)){const g=vis.filter(f=>f.type===type);if(!g.length)continue;
+    const cnt={};for(const f of g){const v=fxVariant(f),l=v?v.label:'';cnt[l]=(cnt[l]||0)+1;}
+    h+=`<tr class="grp"><td colspan="5"><b>${esc(FX[type].label)}</b> · ${g.length}${Object.keys(cnt).length>1||Object.keys(cnt)[0]?` <span class="sub">(${Object.entries(cnt).map(([l,n])=>`${esc(l||'standard')} ×${n}`).join(', ')})</span>`:''}</td></tr>`;
+    for(const f of g){const v=fxVariant(f);h+=`<tr><td class="n">F${fxNum(f)}</td><td>${esc(f.n)}${v?`<div class="sub">${esc(v.label)}</div>`:''}${f.tag&&tagById(f.tag)?`<span class="tagc" style="border-color:${shTagCol(f.tag)};color:${shTagCol(f.tag)}">${esc(tagName(f.tag))}</span>`:''}</td>
+      <td>${where(f)}</td><td class="n">${high(f)}</td><td>${esc(f.notes||'')}</td></tr>`;}}
+  return h+'</table>'+(hid?`<p class="note np">${hid} hidden fixture${hid>1?'s are':' is'} not listed; numbers keep their place.</p>`:'');}
 function specHTML(){const rows=specRows();if(!rows.length)return'<p class="note">Nothing placed yet.</p>';
   const sz=s=>s.filter(v=>v!==null).map(fmt).join(' × ');
   return`<table class="tbl"><tr><th>Item</th><th>Size (m)</th><th>Height</th><th>Notes</th></tr>${rows.map(r=>`<tr><td>${esc(r.n)}${r.tag&&tagById(r.tag)?`<span class="tagc" style="border-color:${shTagCol(r.tag)};color:${shTagCol(r.tag)}">${esc(tagName(r.tag))}</span>`:''}${r.kind?`<div class="sub">${esc(r.kind)}</div>`:''}</td>
@@ -147,7 +171,7 @@ function renderSheet(){if(S.view!=='sheet')return;const L=sheetLayout();
   $('sheet-draw').innerHTML=sheetSVG(L);
   $('sheet-warn').textContent=L.over.length?`At 1:${S.paper.scale} on ${S.paper.size} ${S.paper.orient}, ${L.over.map(it=>it.kind==='plan'?'the plan':elevName(it.e)).join(', ')} ${L.over.length>1?"don't":"doesn't"} fit (red outline). Try a smaller scale, A3, or fewer elevations.`:'';
   $('sheet-warn').hidden=!L.over.length;
-  $('sheet-spec').innerHTML=specHTML();$('sheet-cuts').innerHTML=cutListHTML(false);$('sheet-legend').innerHTML=legendHTML();
+  $('sheet-spec').innerHTML=specHTML();$('sheet-fx').innerHTML=fixturesHTML();$('sheet-cuts').innerHTML=cutListHTML(false);$('sheet-legend').innerHTML=legendHTML();
   setPrintPage();}
 function setPrintPage(){let st=$('print-page');if(!st){st=document.createElement('style');st.id='print-page';document.head.appendChild(st);}
   const[pw,ph]=paperDims();st.textContent=`@media print{@page{size:${S.paper.size} ${S.paper.orient};margin:0}#sheet-draw svg{width:${pw}mm;height:${ph}mm;min-width:0}}`;}

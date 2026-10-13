@@ -8,9 +8,9 @@ const EYE='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-wid
 const EYEOFF='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" opacity=".45"/><path d="M2.5 13.5l11-11"/></svg>';
 
 /* ---------- views, panels, settings ---------- */
-function setView(v){if(!PANELS[v])return;S.view=v;save();if(v==='persp'&&psel&&psel.k!=='fx')psel=null;
+function setView(v){if(!PANELS[v])return;S.view=v;save();if(v==='persp'&&psel&&psel.k!=='fx'&&psel.k!=='op')psel=null;
   if(draft)finishDraft();if(v==='sheet'||(v==='persp'&&!['select','measure'].includes(tool)))tool='select';hover=null;
-  $('stage').classList.toggle('v-plan',v==='plan');$('stage').classList.toggle('v-sheet',v==='sheet');
+  $('stage').classList.toggle('v-plan',v==='plan');$('stage').classList.toggle('v-sheet',v==='sheet');$('stage').classList.toggle('no-mini',v==='persp'&&!S.miniPlan);
   $('board-p').hidden=v!=='persp';$('board-v').hidden=v==='sheet';$('board-s').hidden=v!=='sheet';
   document.querySelectorAll('[data-viewbtn]').forEach(b=>{const on=b.dataset.viewbtn===v;b.setAttribute('aria-selected',on);b.tabIndex=on?0:-1;});
   document.querySelectorAll('[data-only]').forEach(el=>el.hidden=!el.dataset.only.split(' ').includes(v));
@@ -29,21 +29,33 @@ $('b-settings').addEventListener('click',()=>toggleSettings());
 $('b-settings-close').addEventListener('click',()=>toggleSettings(false));
 
 /* ---------- camera + display controls ---------- */
-const ids=['cx','cz','eye','yaw','fov'];
-const fmtO={yaw:v=>(+v).toFixed(1)+'°',fov:v=>Math.round(v)+'°'};
+const ids=['cx','cz','eye','yaw','pitch','fov'];
+const fmtO={yaw:v=>(+v).toFixed(1)+'°',pitch:v=>(+v).toFixed(1)+'°',fov:v=>Math.round(v)+'°'};
 function syncCamUI(){const b=camBounds();$('cx').min=b.x0;$('cx').max=b.x1;$('cz').min=b.z0;$('cz').max=b.z1;
   ids.forEach(k=>{const el=$(k);el.value=S[k];$('o-'+k).textContent=fmtO[k]?fmtO[k](S[k]):(+S[k]).toFixed(2);el.disabled=S.lockCam;});
   document.querySelectorAll('[data-view]').forEach(b=>b.disabled=S.lockCam);$('b-reset').disabled=S.lockCam;}
 $('b-reset').addEventListener('click',resetView);
-function syncToggles(){$('t-guides').checked=!!S.guides;$('t-trace').checked=!!S.trace;$('t-lock').checked=$('t-lock2').checked=!!S.lockCam;
-  for(const[id,k]of[['b-tags','colorTags'],['b-labels','labels'],['b-grid','grid'],['b-trace','trace'],['b-lock','lockCam'],['b-clr','showClr']])$(id).setAttribute('aria-pressed',!!S[k]);
+function syncToggles(){$('t-guides').checked=!!S.guides;$('t-trace').checked=!!S.trace;$('t-solid').checked=!!S.solid;$('t-fxmini').checked=!!S.fxMini;$('t-lock').checked=$('t-lock2').checked=!!S.lockCam;
+  for(const[id,k]of[['b-tags','colorTags'],['b-labels','labels'],['b-grid','grid'],['b-trace','trace'],['b-lock','lockCam'],['b-clr','showClr'],['b-light','showLight'],['b-solid','solid'],['b-mini','miniPlan'],['b-lockwalls','lockWalls']])$(id).setAttribute('aria-pressed',!!S[k]);
   $('snap').value=String(S.snap);}
 ids.forEach(k=>{const el=$(k);
   el.addEventListener('input',()=>{if(S.lockCam){syncCamUI();return;}S[k]=+el.value;$('o-'+k).textContent=fmtO[k]?fmtO[k](S[k]):S[k].toFixed(2);drawAll();});
   el.addEventListener('change',commit);});
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(S.lockCam)return;Object.assign(S,VIEWS[b.dataset.view]);clampCam();syncCamUI();commit();drawAll();}));
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(S.lockCam)return;Object.assign(S,{pitch:0},VIEWS[b.dataset.view]);clampCam();syncCamUI();commit();drawAll();}));
 $('t-guides').addEventListener('change',e=>setToggle('guides',e.target.checked));
 $('t-trace').addEventListener('change',e=>setToggle('trace',e.target.checked));
+$('t-solid').addEventListener('change',e=>setToggle('solid',e.target.checked));
+$('t-fxmini').addEventListener('change',e=>setToggle('fxMini',e.target.checked));
+$('b-solid').addEventListener('click',()=>setToggle('solid',!S.solid));
+$('b-lockwalls').addEventListener('click',()=>setToggle('lockWalls',!S.lockWalls));
+$('b-mini').addEventListener('click',()=>{setToggle('miniPlan',!S.miniPlan);$('stage').classList.toggle('no-mini',S.view==='persp'&&!S.miniPlan);size();});
+$('b-fit').addEventListener('click',planFit);
+$('rot-l').addEventListener('click',()=>rotateRoom(-90));$('rot-r').addEventListener('click',()=>rotateRoom(90));
+$('rot-go').addEventListener('click',()=>rotateRoom(parseFloat($('rot-deg').value)));
+$('b-frame').addEventListener('click',frameView);
+$('b-saveview').addEventListener('click',saveView);
+$('set-wheel').checked=wheelSideways;$('set-wheel').addEventListener('change',e=>setWheelPref(e.target.checked));
+$('set-pan').checked=panGrab;$('set-pan').addEventListener('change',e=>setPanPref(e.target.checked));
 $('t-lock').addEventListener('change',e=>setToggle('lockCam',e.target.checked));
 $('t-lock2').addEventListener('change',e=>setToggle('lockCam',e.target.checked));
 $('b-tags').addEventListener('click',()=>setToggle('colorTags',!S.colorTags));
@@ -58,6 +70,7 @@ $('b-del').addEventListener('click',actDel);$('b-group').addEventListener('click
 $('b-hide').addEventListener('click',actHide);$('b-locksel').addEventListener('click',actLockSel);
 $('b-copy').addEventListener('click',actCopy);$('b-paste').addEventListener('click',actPaste);
 $('b-clr').addEventListener('click',()=>setToggle('showClr',!S.showClr));
+$('b-light').addEventListener('click',()=>setToggle('showLight',!S.showLight));
 $('b-paper').addEventListener('click',()=>RUN.paper());
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 $('fx-type').addEventListener('change',()=>{if(tool!=='fixture')setTool('fixture');else drawAll();});
@@ -66,6 +79,14 @@ function updToolbar(){$('b-undo').disabled=hi<=0;$('b-redo').disabled=hi>=hist.l
   $('b-del').disabled=!n&&!psel;$('b-paste').disabled=!CLIP;
   $('b-group').disabled=n<2;$('b-ungroup').disabled=!sel.some(k=>k[0]==='g');
   $('b-locksel').textContent=n&&sel.every(k=>{const id=k.slice(2);return k[0]==='b'?byId(id)?.locked:grpById(id)?.locked;})?'Unlock':'Lock';}
+
+/* ---------- saved viewpoints ---------- */
+function renderViews(){const el=$('views-body');if(!el)return;
+  el.innerHTML=S.views.length?S.views.map(v=>`<div class="vrow"><input class="tx" data-vn="${v.id}" value="${esc(v.name)}" aria-label="Viewpoint name"><button type="button" data-vgo="${v.id}"${S.lockCam?' disabled':''}>Go</button><button type="button" data-vdel="${v.id}" aria-label="Delete ${esc(v.name)}">×</button></div>`).join('')
+    :'<p class="note">No saved views yet. Set the camera, then Save this view.</p>';
+  el.querySelectorAll('[data-vgo]').forEach(b=>b.addEventListener('click',()=>gotoView(b.dataset.vgo)));
+  el.querySelectorAll('[data-vdel]').forEach(b=>b.addEventListener('click',()=>delView(b.dataset.vdel)));
+  el.querySelectorAll('[data-vn]').forEach(i=>i.addEventListener('change',()=>{const v=S.views.find(x=>x.id===i.dataset.vn);if(v&&i.value.trim()){v.name=i.value.trim();commit();}}));}
 
 /* ---------- inspector ---------- */
 function tagName(id){const t=id&&tagById(id);return t?t.name:'';}
@@ -83,9 +104,9 @@ function renderInspector(){const el=$('insp'),it=single(),list=selBoxes();
   h+='<div class="ig">'+['x','y','z','w','d','h'].map(k=>`<label for="i-${k}"><span>${k}</span><input id="i-${k}" type="number" step="0.01" data-k="${k}"${locked||(roSize&&'wdh'.includes(k))?' readonly':''}></label>`).join('')+'</div>';
   const lockedNow=it?(it.kind==='b'?it.o.locked:it.g.locked):sel.every(k=>{const id=k.slice(2);return k[0]==='b'?byId(id)?.locked:grpById(id)?.locked;});
   h+=`<label class="inl"><input id="i-lock" type="checkbox"${lockedNow?' checked':''}> Locked (can't be moved, resized, rotated or deleted)</label>`;
-  if(it){const own=list,ex=new Set(own.concat(descendants(own)).map(o=>o.id)),cur=own.length&&own.every(o=>o.parent===own[0].parent)?own[0].parent||'':'',nk=childCount(own);
+  if(it){const own=list,ex=new Set(own.concat(descendants(own)).map(o=>o.id)),cur=own.length&&own.every(o=>o.pw&&o.pw===own[0].pw)?'w:'+own[0].pw:own.length&&own.every(o=>o.parent===own[0].parent)?own[0].parent||'':'',nk=childCount(own);
     const opts=S.objects.filter(o=>!ex.has(o.id)&&!(it.kind==='g'&&o.g===it.g.id)).map(o=>{const g=o.g&&grpById(o.g);return[o.id,g?`${g.n} › ${o.n}`:o.n];}).sort((a,b)=>a[1].localeCompare(b[1]));
-    h+=`<div class="ig params"><label class="wide" for="i-parent"><span>Attached to</span><select id="i-parent"${locked?' disabled':''}><option value="">Nothing (free)</option>${opts.map(([id,n])=>`<option value="${id}"${id===cur?' selected':''}>${esc(n)}</option>`).join('')}</select></label>
+    h+=`<div class="ig params"><label class="wide" for="i-parent"><span>Attached to</span><select id="i-parent"${locked?' disabled':''}><option value="">Nothing (free)</option>${S.walls.length?`<optgroup label="Walls">${S.walls.map(w=>`<option value="w:${w.id}"${'w:'+w.id===cur?' selected':''}>${esc(wallName(w))}</option>`).join('')}</optgroup>`:''}${opts.map(([id,n])=>`<option value="${id}"${id===cur?' selected':''}>${esc(n)}</option>`).join('')}</select></label>
       <label for="i-detach"><span>&nbsp;</span><button id="i-detach" type="button"${cur?'':' disabled'}>Detach</button></label></div>
       <p class="note">${nk?`Carries ${nk} attached item${nk>1?'s':''}. `:''}Attached items move and turn with what they're attached to. Hold <kbd>Shift</kbd> while dragging to drop onto the box underneath and attach.</p>`;
     const clr=it.kind==='b'?it.o.clr:it.g.clr,cl=it.kind==='b'?it.o.clrLabel:it.g.clrLabel;
@@ -117,7 +138,8 @@ function renderInspector(){const el=$('insp'),it=single(),list=selBoxes();
   const ish=$('i-shape');if(ish)ish.addEventListener('change',()=>{const t=single();if(!t||t.kind!=='b'||ish.value==='custom')return;t.o.poly=SHAPES[ish.value].pts();commit();renderInspector();drawAll();});
   const ial=$('i-align');if(ial)ial.addEventListener('click',alignToWall);
   const nt=$('i-notes');if(nt)nt.addEventListener('change',()=>{const t=single();if(!t)return;if(t.kind==='b')t.o.notes=nt.value;else t.g.notes=nt.value;commit();});
-  const ip=$('i-parent');if(ip)ip.addEventListener('change',()=>{const ls=selBoxes();if(ip.value){if(attachTo(ls,ip.value))flash(`Attached to ${parentName(ls[0])}.`);}else{detach(ls);flash('Detached.');}commit();renderInspector();renderList();drawAll();});
+  const ip=$('i-parent');if(ip)ip.addEventListener('change',()=>{const ls=selBoxes();if(ip.value.startsWith('w:')){attachToWall(ls,ip.value.slice(2));flash(`Attached to ${wallName2(ls[0])}. It follows the wall when the wall moves.`);}
+    else if(ip.value){if(attachTo(ls,ip.value))flash(`Attached to ${parentName(ls[0])}.`);}else{detach(ls);flash('Detached.');}commit();renderInspector();renderList();drawAll();});
   const idt=$('i-detach');if(idt)idt.addEventListener('click',()=>{detach(selBoxes());commit();renderInspector();renderList();flash('Detached.');});
   const setClr=(v,l)=>{const t=single();if(!t)return;const o=t.kind==='b'?t.o:t.g;if(v!==null)o.clr=Math.max(0,v);if(l!==null)o.clrLabel=l;commit();renderInspector();drawAll();};
   const ic=$('i-clr');if(ic)ic.addEventListener('change',()=>{const v=parseFloat(ic.value);setClr(isFinite(v)?v:0,null);if(!S.showClr&&v>0)setToggle('showClr',true);});
@@ -148,7 +170,7 @@ function renderList(){const el=$('olist');
       const meta=(g.preset?(PRESETS[g.preset.type]?.label||'preset').toLowerCase():'group')+' · '+ms.length+(g.locked?' · locked':'');
       h+=row('g:'+g.id,g.n,g.vis,on.has('g:'+g.id),false,`<button type="button" class="ib tw" data-tw="${g.id}" aria-expanded="${open}" aria-label="${open?'Hide':'Show'} parts of ${esc(g.n)}">${open?'▾':'▸'}</button>`,meta,g.tag);
       if(open)for(const m of ms)h+=row('m:'+m.id,m.n,m.vis,false,true,'','',effTag(m));}
-    else h+=row('b:'+o.id,o.n,o.vis,on.has('b:'+o.id),false,'<span class="tw" style="display:inline-block"></span>',[o.parent?'on '+esc(parentName(o)):'',o.locked?'locked':''].filter(Boolean).join(' · '),o.tag);}
+    else h+=row('b:'+o.id,o.n,o.vis,on.has('b:'+o.id),false,'<span class="tw" style="display:inline-block"></span>',[o.parent?'on '+esc(parentName(o)):o.pw?'on '+wallName2(o):'',o.locked?'locked':''].filter(Boolean).join(' · '),o.tag);}
   el.innerHTML=h;renderCuts();renderTraceHL();
   el.querySelectorAll('[data-tw]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.tw;openGroups.has(id)?openGroups.delete(id):openGroups.add(id);renderList();}));
   el.querySelectorAll('[data-eye]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.eye,id=k.slice(2);
@@ -237,7 +259,7 @@ function status(){const el=$('status');if(flashMsg){el.textContent=flashMsg;retu
   if(layerMode()){const L=S.layers.find(l=>l.id===activeLayer);el.textContent=L?`Image: ${L.name} · ${Math.round(L.op*100)}% · ${L.rot.toFixed(1)}°`+(L.fx?' · mirrored':'')+(L.fy?' · flipped':'')+(S.lockCam?' · camera locked':''):'Layers: click an image on the drawing to select it, or add images.';return;}
   const list=selBoxes();
   if(S.view==='persp'&&S.trace&&glowSet().length&&!list.length){el.textContent=`Trace: ${glowSet().map(hlLabel).join(', ')} glow in their tag colours; everything else is faint. Clear the Glow list to trace everything.`;return;}
-  if(!list.length){el.textContent=S.view==='plan'?'Click a shape, wall, door or fixture to select it and drag to move. The round handle rotates in 15° steps, Alt for any angle. Drag the orange dot to move the camera. Draw with the tools above.':'Click a box edge to select it. Shift-click adds more. Arrows move along an axis, square tips resize. Alt turns snapping off.';return;}
+  if(!list.length){el.textContent=S.view==='plan'?'Click a shape, wall, door or fixture to select it and drag to move. The round handle rotates in 15° steps, Alt for any angle. Drag the orange dot to move the camera. Right-drag pans, Ctrl + scroll zooms, Home fits the room. Draw with the tools above.':'Click a box edge to select it. Shift-click adds more. Arrows move along an axis, square tips resize. Alt turns snapping off. Scroll zooms the lens; right-drag looks around.';return;}
   const b=bbox(list),it=single(),nm=it?(it.kind==='b'?it.o.n:it.g.n):`${sel.length} items`,tg=it?tagName(it.kind==='b'?effTag(it.o):it.g.tag):'',rot=it?(it.kind==='b'?it.o.rot:it.g.rot):0;
   el.textContent=`${nm}${tg?' · '+tg:''} · x ${fmt(b.x0)} y ${fmt(b.y0)} z ${fmt(b.z0)} · w ${fmt(b.x1-b.x0)} d ${fmt(b.z1-b.z0)} h ${fmt(b.y1-b.y0)} m${rot?` · ${fmtIn(rot)}°`:''}${selLocked()?' · locked':''}`;}
 
@@ -284,9 +306,9 @@ function openNewDlg(){$('new-dlg').hidden=false;setTimeout(()=>$('new-export').f
 function closeNewDlg(){$('new-dlg').hidden=true;$('b-new').focus();}
 /* clears the model; tags, shortcuts and view settings stay. Image pixels stay in the browser until the next reload, so Undo can bring the old project back. */
 function newProject(quiet){const room=$('new-room').checked,W=Math.max(1.2,parseFloat($('new-w').value)||4),D=Math.max(1.2,parseFloat($('new-d').value)||5);
-  const keep={tags:S.tags,snap:S.snap,panels:S.panels,colorTags:S.colorTags,labels:S.labels,guides:S.guides,grid:S.grid,ceil:S.ceil,paper:S.paper,view:S.view==='sheet'?'plan':S.view};
+  const keep={tags:S.tags,snap:S.snap,panels:S.panels,colorTags:S.colorTags,labels:S.labels,guides:S.guides,grid:S.grid,ceil:S.ceil,paper:S.paper,solid:S.solid,miniPlan:S.miniPlan,view:S.view==='sheet'?'plan':S.view};
   const m=migrate(null);for(const k of['walls','openings','rooms','marks','objects','groups','fixtures','notes','layers','scenarios'])m[k]=[];
-  if(room){const P=[[0,0],[W,0],[W,D],[0,D]];m.walls=P.map((a,i)=>({id:uid('w'),a:[...a],b:[...P[(i+1)%4]],h:null}));m.rooms=[{id:uid('r'),name:'Room 1',pts:P.map(p=>[...p]),auto:true,drawn:false}];
+  if(room){const P=[[0,0],[W,0],[W,D],[0,D]];m.walls=P.map((a,i)=>normWall({id:uid('w'),a:[...a],b:[...P[(i+1)%4]],h:null}));m.rooms=[{id:uid('r'),name:'Room 1',pts:P.map(p=>[...p]),auto:true,drawn:false}];
     /* a window centred on the first wall, the entrance door near the start of the opposite wall */
     const ww=Math.min(1.4,W-0.4),dw=Math.min(0.85,W-0.3);
     m.openings=[normOpening({id:uid('op'),wall:m.walls[0].id,type:'window',off:+((W-ww)/2).toFixed(4),w:ww,h:1.2,sill:0.9}),
@@ -308,12 +330,12 @@ function size(){const dpr=Math.min(window.devicePixelRatio||1,2);
   if(S.view==='sheet'){drawAll();return;}
   if(S.view==='persp'){const r=cv.getBoundingClientRect();if(r.width){cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.width*0.75*dpr);K=cv.width/r.width;}}
   const pr=pv.getBoundingClientRect();if(!pr.width){drawAll();return;}
-  let ph;if(S.view==='plan'){const b=worldBounds(),asp=(b.z1-b.z0+0.6)/(b.x1-b.x0+0.6);ph=clamp(pr.width*asp,300,Math.max(320,window.innerHeight*0.78));}
+  let ph;if(S.view==='plan')ph=Math.max(480,Math.round(window.innerHeight*0.82));
   else ph=mqPhone.matches?Math.min(pr.width*1.15,420):cv.getBoundingClientRect().width*0.75;
   pv.style.height=Math.round(ph)+'px';pv.width=Math.round(pr.width*dpr);pv.height=Math.round(ph*dpr);KP=pv.width/pr.width;
   drawAll();}
 function drawAll(){tok();CLR=clrCheck();GHOST=ghostObjs();if(S.view==='sheet')renderSheet();else{draw();drawPlan();}status();renderWarn();}
-function renderAll(){syncCamUI();syncToggles();renderPtabs();renderInspector();renderList();renderRooms();renderAddButtons();renderLayers();renderKeys();renderTags();renderLegend();
+function renderAll(){syncCamUI();syncToggles();renderViews();renderPtabs();renderInspector();renderList();renderRooms();renderAddButtons();renderLayers();renderKeys();renderTags();renderLegend();
   renderTools();renderPaperCtls();renderSheetPanel();renderNotes();renderScenarios();renderTraceHL();updToolbar();drawAll();}
 
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{renderTags();renderLegend();renderList();drawAll();});

@@ -33,12 +33,14 @@
       <button type="button" data-tool="room" data-only="plan" title="Draw a room outline (Shift+W)">Room</button>
       <button type="button" data-tool="door" data-only="plan" title="Add a door on a wall (O)">Door</button>
       <button type="button" data-tool="window" data-only="plan" title="Add a window on a wall (Shift+O)">Window</button>
-      <span class="fxpick" data-only="plan"><button type="button" data-tool="fixture" title="Add a fixture (F)">Fixture</button><select id="fx-type" aria-label="Fixture type"><option value="outlet">Outlet</option><option value="switch">Switch</option><option value="wlight">Wall light</option><option value="clight">Ceiling light</option><option value="strip">Power strip</option></select></span>
+      <span class="fxpick" data-only="plan"><button type="button" data-tool="fixture" title="Add a fixture (F)">Fixture</button><select id="fx-type" aria-label="Fixture type"><option value="outlet">Outlet</option><option value="switch">Switch</option><option value="wlight">Wall light</option><option value="clight">Ceiling light</option><option value="strip">Power strip</option><option value="powerbox">Power box</option><option value="pipe">Pipe (wall)</option><option value="pipef">Pipe (floor)</option><option value="pipec">Pipe (ceiling)</option></select></span>
       <button type="button" data-tool="mark" data-only="plan" title="Add a reference line (E)">Line</button>
       <span class="sep"></span>
       <button type="button" data-tool="measure" title="Measure (M)">Measure</button>
       <button id="b-clr" type="button" aria-pressed="false" title="Clearance zones (Shift+C)">Clearances</button>
+      <button id="b-light" type="button" aria-pressed="false" title="Light coverage of ceiling and wall lights (I)">Light coverage</button>
       <button id="b-paper" type="button" aria-pressed="false" data-only="persp" title="Paper frame (P)">Paper frame</button>
+      <button id="b-fit" type="button" data-only="plan" title="Fit the plan to the room (Home). Right-drag pans, Ctrl + scroll zooms.">Fit plan</button>
     </div>
     <div class="toolbar" role="toolbar" aria-label="Edit">
       <button id="b-undo" type="button">Undo</button>
@@ -62,6 +64,10 @@
       <button id="b-trace" type="button" aria-pressed="false" data-only="persp">Trace</button>
       <span class="glowpick" data-only="persp"><button id="glow-btn" type="button" aria-expanded="false" aria-pressed="false" title="Pick tags, kinds or items that glow in trace mode">Glow</button><div id="glow-pop" class="glowpop" hidden></div></span>
       <button id="b-lock" type="button" aria-pressed="false" data-only="persp">Lock camera</button>
+      <button id="b-solid" type="button" aria-pressed="false" data-only="persp" title="Hide lines that sit behind nearer objects (S)">Solid</button>
+      <button id="b-mini" type="button" aria-pressed="true" data-only="persp" title="Show or hide the small plan beside the perspective">Mini plan</button>
+      <span class="sep" data-only="plan persp"></span>
+      <button id="b-lockwalls" type="button" aria-pressed="false" data-only="plan persp" title="Walls can't be dragged, resized or deleted while locked (K)">Lock walls</button>
     </div>
     <div class="stage" id="stage">
       <div class="board" id="board-p"><canvas id="cv" width="1200" height="900" aria-label="Perspective drawing of the room"></canvas></div>
@@ -76,6 +82,7 @@
             <section class="spanel"><h2>Cut list</h2><div id="sheet-cuts"></div></section>
             <section class="spanel"><h2>Tags</h2><div id="sheet-legend"></div></section>
           </div>
+          <section class="spanel" style="grid-column:1/-1"><h2>Fixtures</h2><div id="sheet-fx"></div></section>
         </div>
       </div>
     </div>
@@ -93,10 +100,14 @@
         <div class="chips">
           <button id="b-reset" type="button" title="Shortcut: Home">Reset view</button>
           <button data-view="door" type="button">From the doorway</button>
-          <button data-view="sketch" type="button">Like your sketch</button>
           <button data-view="corner" type="button">Right corner</button>
           <button data-view="top" type="button">Standing high</button>
         </div>
+        <div class="chips">
+          <button id="b-frame" type="button" title="Shortcut: Z">Frame selection / room</button>
+          <button id="b-saveview" type="button">Save this view</button>
+        </div>
+        <div id="views-body" style="display:grid;gap:6px"></div>
       </fieldset>
       <fieldset>
         <legend>Camera (metres)</legend>
@@ -104,21 +115,25 @@
         <div class="row"><label for="cz">Distance back</label><input id="cz" type="range" step="0.01"><output id="o-cz"></output></div>
         <div class="row"><label for="eye">Eye height</label><input id="eye" type="range" min="0.3" max="2.4" step="0.01"><output id="o-eye"></output></div>
         <div class="row"><label for="yaw">Turn</label><input id="yaw" type="range" min="-180" max="180" step="0.5"><output id="o-yaw"></output></div>
-        <div class="row"><label for="fov">Lens width</label><input id="fov" type="range" min="40" max="100" step="1"><output id="o-fov"></output></div>
-        <p class="note">Keys: <kbd>↑</kbd><kbd>↓</kbd> walk, <kbd>←</kbd><kbd>→</kbd> turn, <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> step sideways, <kbd>PgUp</kbd><kbd>PgDn</kbd> eye height. You can also drag the camera dot in the plan.</p>
+        <div class="row"><label for="pitch">Look up / down</label><input id="pitch" type="range" min="-80" max="80" step="0.5"><output id="o-pitch"></output></div>
+        <div class="row"><label for="fov">Lens width</label><input id="fov" type="range" min="20" max="100" step="1"><output id="o-fov"></output></div>
+        <p class="note">Keys: <kbd>↑</kbd><kbd>↓</kbd> walk, <kbd>←</kbd><kbd>→</kbd> turn, <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> step sideways, <kbd>Shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd> look up and down, <kbd>PgUp</kbd><kbd>PgDn</kbd> eye height, <kbd>Z</kbd> frame the selection or room. You can also drag the camera dot in the plan.</p>
+        <p class="note">Mouse: scroll zooms the lens, <kbd>Shift</kbd> + scroll walks. Hold the right button and move to look around; with it held, <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly and <kbd>Q</kbd><kbd>E</kbd> go down and up (<kbd>Shift</kbd> is faster). <kbd>Alt</kbd> + right-drag orbits the selection or room; middle-drag slides the camera. The camera may stand outside the room; the walls in the way turn faint.</p>
       </fieldset>
       <fieldset>
         <legend>Show</legend>
         <div class="toggles">
           <label><input id="t-guides" type="checkbox"> Perspective guides</label>
           <label><input id="t-trace" type="checkbox"> Trace mode</label>
+          <label><input id="t-solid" type="checkbox"> Solid (hide hidden lines)</label>
+          <label><input id="t-fxmini" type="checkbox"> Fixtures in the mini plan</label>
           <label><input id="t-lock" type="checkbox"> Lock camera</label>
         </div>
       </fieldset>
       <fieldset>
         <legend>Paper frame</legend>
         <div id="cam-paper" style="display:grid;gap:8px"></div>
-        <p class="note">Frames the view as a sheet of paper with a 1 cm grid, to copy square by square. The dotted floor line is where the picture is at the chosen scale.</p>
+        <p class="note">Frames the view as a sheet of paper with a 1 cm grid, to copy square by square. The dotted floor line is where the picture is at the chosen scale. <b>Print frame</b> prints just the framed area on one sheet of that paper; print at 100% (not "fit to page") so the squares are 1 cm.</p>
       </fieldset>
     </section>
 
@@ -132,6 +147,13 @@
       <fieldset>
         <legend>Rooms</legend>
         <div id="room-body" style="display:grid;gap:8px"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Rotate the room</legend>
+        <div class="chips"><button id="rot-l" type="button">Turn 90° left</button><button id="rot-r" type="button">Turn 90° right</button></div>
+        <div class="ig"><label for="rot-deg"><span>Angle (° clockwise)</span><input id="rot-deg" type="number" step="1" value="15"></label>
+          <label for="rot-go"><span>&nbsp;</span><button id="rot-go" type="button">Rotate</button></label></div>
+        <p class="note">Turns everything about the middle of the room: walls, rooms, lines, furniture, ceiling and floor fixtures, saved scenarios and the camera. Doors, windows and fixtures on walls or objects keep their places. Undo brings it back. Walls must be unlocked.</p>
       </fieldset>
       <fieldset>
         <legend>Walls</legend>
@@ -231,6 +253,13 @@
         <p class="note">Boxes also snap to walls (angled walls too: to their face) and to the faces of other unrotated boxes. Hold <kbd>Alt</kbd> while dragging to place or rotate freely. Walls are drawn in 15° steps; <kbd>Shift</kbd>-drag a wall end to move that corner freely.</p>
       </fieldset>
       <fieldset>
+        <legend>Mouse wheel in the plan</legend>
+        <label class="inl"><input id="set-wheel" type="checkbox"> Wheel scrolls sideways, <kbd>Shift</kbd> + wheel up and down</label>
+        <p class="note">Unticked (default): the wheel scrolls up and down and <kbd>Shift</kbd> + wheel sideways. <kbd>Ctrl</kbd> + wheel zooms.</p>
+        <label class="inl"><input id="set-pan" type="checkbox"> Right-drag drags the drawing itself</label>
+        <p class="note">Unticked (default), the view follows the cursor like a camera; ticked, the drawing sticks to the cursor like a map.</p>
+      </fieldset>
+      <fieldset>
         <legend>Tags</legend>
         <div id="tags" style="display:grid;gap:4px"></div>
         <div class="tagadd">
@@ -271,6 +300,9 @@
   </div>
 </div>
 
+<div id="print-frame" aria-hidden="true"></div>
+<style id="print-page"></style>
+
 <script src="js/state.js"></script>
 <script src="js/geom.js"></script>
 <script src="js/presets.js"></script>
@@ -280,6 +312,7 @@
 <script src="js/cammatch.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/interact.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/attach.js"></script>
 <script src="js/scenarios.js"></script>
 <script src="js/fixtures.js"></script>

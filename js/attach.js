@@ -14,7 +14,25 @@ function kidGroupKeys(keys){const list=[];for(const k of keys){const id=k.slice(
   const ds=descendants(list),gs=new Set(ds.filter(o=>o.g).map(o=>o.g)),have=new Set(keys),out=[];
   for(const g of gs){const key='g:'+g;if(have.has(key))continue;const ms=members(g);if(ms.length&&ms.every(m=>ds.includes(m)))out.push(key);}
   return out;}
-function updOffsets(){for(const o of S.objects){if(!o.parent){o.po=null;continue;}const p=byId(o.parent);
+/* ---------- attached to a wall ----------
+   An object with o.pw sits in the frame of that wall: pt along it (from its start), pn out from its face into the room (to the
+   object's centre) and pa its yaw relative to the wall's front. The frame is refreshed on every commit; when walls are moved
+   keepOnWalls() puts the object back into the frame of the wall's new position, and what is attached to it follows. */
+function wallFrameYaw(w){const n=wallInN(w);return Math.atan2(-n[0],n[1])*180/Math.PI;}
+function wallFrameOf(o,w){const u=wallU(w),n=wallInN(w),c=[o.x+o.w/2-w.a[0],o.z+o.d/2-w.a[1]],r=v=>+v.toFixed(4);
+  return{pt:r(c[0]*u[0]+c[1]*u[1]),pn:r(c[0]*n[0]+c[1]*n[1]),pa:r(normDeg(absYaw(o)-wallFrameYaw(w)))};}
+function placeOnWall(o,w,t,n,a){const u=wallU(w),nn=wallInN(w);
+  o.rot=(o.rot||0)+normDeg(wallFrameYaw(w)+a-absYaw(o));normRot(o);
+  o.x=w.a[0]+u[0]*t+nn[0]*n-o.w/2;o.z=w.a[1]+u[1]*t+nn[1]*n-o.d/2;}
+/* things attached to o (by parent) follow it from its previous centre c0 and yaw a0 to where it is now */
+function followParent(o,c0,a0){const c1=[o.x+o.w/2,o.z+o.d/2],d=normDeg(absYaw(o)-a0),r=d*Math.PI/180,ca=Math.cos(r),sa=Math.sin(r);
+  for(const k of descendants([o])){const dx=k.x+k.w/2-c0[0],dz=k.z+k.d/2-c0[1];
+    k.x=c1[0]+dx*ca-dz*sa-k.w/2;k.z=c1[1]+dx*sa+dz*ca-k.d/2;if(Math.abs(d)>1e-9){k.rot=(k.rot||0)+d;normRot(k);}}}
+function attachToWall(list,wid){const w=wallById(wid);if(!w)return 0;for(const o of list){o.parent=null;o.po=null;o.pw=wid;}updOffsets();return list.length;}
+function wallName2(o){const w=o&&o.pw&&wallById(o.pw);return w?`wall ${S.walls.indexOf(w)+1}`:'';}
+function updOffsets(){
+  for(const o of S.objects){if(!o.pw)continue;const w=wallById(o.pw);if(!w){o.pw=null;continue;}Object.assign(o,wallFrameOf(o,w));}
+  for(const o of S.objects){if(!o.parent){o.po=null;continue;}const p=byId(o.parent);
   if(!p||p===o){o.parent=null;o.po=null;continue;}
   o.po={x:+(o.x-p.x).toFixed(4),y:+(o.y-p.y).toFixed(4),z:+(o.z-p.z).toFixed(4)};}
   /* fixtures on an object go with it when it is deleted */
@@ -23,8 +41,8 @@ function parentName(o){const p=o&&byId(o.parent);if(!p)return'';const g=p.g&&grp
 /* attach every box of the list (group members included) to parent id; refuses cycles */
 function attachTo(list,pid){const p=byId(pid);if(!p)return 0;const bad=new Set(list.concat(descendants(list)).map(o=>o.id));
   if(bad.has(pid)){flash("Can't attach an item to itself or to something attached to it.");return 0;}
-  let n=0;for(const o of list){if(o.g&&o.g===p.g)continue;o.parent=pid;n++;}updOffsets();return n;}
-function detach(list){for(const o of list){o.parent=null;o.po=null;}}
+  let n=0;for(const o of list){if(o.g&&o.g===p.g)continue;o.parent=pid;o.pw=null;n++;}updOffsets();return n;}
+function detach(list){for(const o of list){o.parent=null;o.po=null;o.pw=null;}}
 function childCount(list){return descendants(list).length;}
 
 /* box whose top face is under the centre of the list's footprint (the highest one), ignoring the list and its children */

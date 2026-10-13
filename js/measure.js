@@ -5,7 +5,7 @@
 const MS={pts:[]};   // transient: [{P:[x,y,z], n:[nx,ny,nz]|null, what}]
 
 /* ---------- ray picking in the perspective ---------- */
-function camRay(p){const x=(p[0]-cam.ox)/cam.fp,y=(cam.oy-p[1])/cam.fp,d=[cam.r[0]*x+cam.f[0],y,cam.r[2]*x+cam.f[2]],l=Math.hypot(...d);return{o:cam.p.slice(),d:d.map(v=>v/l)};}
+function camRay(p){const x=(p[0]-cam.ox)/cam.fp,y=(cam.oy-p[1])/cam.fp,d=[0,1,2].map(i=>cam.r[i]*x+cam.u[i]*y+cam.f[i]),l=Math.hypot(...d);return{o:cam.p.slice(),d:d.map(v=>v/l)};}
 function rayPick(p){setupCam(cv.width,cv.height);const{o,d}=camRay(p);let best=null;
   const take=(t,n,what)=>{if(t>NEAR&&(!best||t<best.t))best={t,n,what};};
   if(Math.abs(d[1])>1e-9){take(-o[1]/d[1],[0,1,0],'floor');take((S.ceil-o[1])/d[1],[0,-1,0],'ceiling');}

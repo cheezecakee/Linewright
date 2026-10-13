@@ -4,10 +4,11 @@
 /* ---------- camera / projection ---------- */
 let cam;
 const NEAR=0.05;
-function setupCam(w,h){const y=S.yaw*Math.PI/180;
-  cam={p:[S.cx,S.eye,S.cz],r:[Math.cos(y),0,Math.sin(y)],f:[Math.sin(y),0,-Math.cos(y)],fp:(w/2)/Math.tan(S.fov*Math.PI/360),ox:w/2,oy:h/2};}
+/* camera: yaw about the vertical, then pitch (positive looks up). r = right, u = up, f = forward, all unit vectors. */
+function setupCam(w,h){const y=S.yaw*Math.PI/180,p=(S.pitch||0)*Math.PI/180,sy=Math.sin(y),cy=Math.cos(y),sp=Math.sin(p),cp=Math.cos(p);
+  cam={p:[S.cx,S.eye,S.cz],r:[cy,0,sy],u:[-sy*sp,cp,cy*sp],f:[sy*cp,sp,-cy*cp],fp:(w/2)/Math.tan(S.fov*Math.PI/360),ox:w/2,oy:h/2};}
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
-function toCam(P){const d=[P[0]-cam.p[0],P[1]-cam.p[1],P[2]-cam.p[2]];return[dot(d,cam.r),d[1],dot(d,cam.f)];}
+function toCam(P){const d=[P[0]-cam.p[0],P[1]-cam.p[1],P[2]-cam.p[2]];return[dot(d,cam.r),dot(d,cam.u),dot(d,cam.f)];}
 function proj(c){return[cam.ox+cam.fp*c[0]/c[2],cam.oy-cam.fp*c[1]/c[2]];}
 function clipProj(A,B){let a=toCam(A),b=toCam(B);if(a[2]<NEAR&&b[2]<NEAR)return null;
   if(a[2]<NEAR||b[2]<NEAR){const t=(NEAR-a[2])/(b[2]-a[2]);const m=[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),NEAR];if(a[2]<NEAR)a=m;else b=m;}
@@ -49,7 +50,24 @@ function worldBounds(){let x0=Infinity,z0=Infinity,x1=-Infinity,z1=-Infinity;
   const add=p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);};
   for(const w of S.walls){add(w.a);add(w.b);}for(const r of S.rooms)(r.pts||[]).forEach(add);
   if(!isFinite(x0))return{x0:0,z0:0,x1:2.55,z1:4.7};return{x0,z0,x1,z1};}
-function camBounds(){const b=worldBounds();return{x0:b.x0+0.1,x1:Math.max(b.x0+0.2,b.x1-0.1),z0:b.z0+0.3,z1:Math.max(b.z0+0.4,b.z1-0.1)};}
+/* the camera may stand up to 3 m outside the walls (dollhouse views); walls between it and the room are drawn faint */
+function camBounds(){const b=worldBounds(),m=3;return{x0:b.x0-m,x1:b.x1+m,z0:b.z0-m,z1:b.z1+m};}
+
+/* wood wall pattern as line segments in wall coordinates [t0,y0,t1,y1] (t along the wall, y up), skipping door and window
+   holes. Slats and boards are thinned out on very long walls so the line count stays small. */
+function wallPat(w){if(w.type!=='wood')return[];
+  const L=wallLen(w),H=wallH(w),sw=w.sw||0.05,sg=w.sg||0,st=w.style||'slats',ops=S.openings.filter(o=>o.wall===w.id),out=[];
+  const free=(hi,holes)=>{const r=[];let c=0;for(const[a,b]of holes.sort((p,q)=>p[0]-q[0])){if(a>c&&c<hi)r.push([c,Math.min(a,hi)]);c=Math.max(c,b);}if(c<hi)r.push([c,hi]);return r;};
+  const vline=t=>{const hs=ops.filter(o=>t>o.off+1e-6&&t<o.off+o.w-1e-6).map(o=>o.type==='door'?[0,o.h]:[o.sill,o.sill+o.h]);
+    for(const[a,b]of free(H,hs))if(b-a>1e-3)out.push([t,a,t,b]);};
+  const hline=y=>{const hs=ops.filter(o=>{const lo=o.type==='door'?0:o.sill,hi=o.type==='door'?o.h:o.sill+o.h;return y>lo+1e-6&&y<hi-1e-6;}).map(o=>[o.off,o.off+o.w]);
+    for(const[a,b]of free(L,hs))if(b-a>1e-3)out.push([a,y,b,y]);};
+  const pitch=(len,p)=>{const n=len/p;return n>150?p*Math.ceil(n/150):p;};
+  if(st==='slats'){const p=pitch(L,sw+sg);for(let t=sw;t<L-1e-3;t+=p){vline(t);if(sg>1e-4&&t+sg<L-1e-3)vline(t+sg);}}
+  else if(st==='hslats'){const p=pitch(H,sw+sg);for(let y=sw;y<H-1e-3;y+=p){hline(y);if(sg>1e-4&&y+sg<H-1e-3)hline(y+sg);}}
+  else if(st==='boards'){const p=pitch(H,sw);for(let y=p;y<H-1e-3;y+=p)hline(y);}
+  else{const m=0.08;if(L>3*m&&H>3*m)out.push([m,m,L-m,m],[L-m,m,L-m,H-m],[L-m,H-m,m,H-m],[m,H-m,m,m]);}
+  return out;}
 
 /* ---------- rotation ---------- */
 /* keep rot in [0,90): a box turned 90° equals the same box with w and d swapped. Each quarter turn taken out of rot is
@@ -57,7 +75,8 @@ function camBounds(){const b=worldBounds();return{x0:b.x0+0.1,x1:Math.max(b.x0+0
    to the face that now has the same place in the world. Quarter turns are exact, so 180° turns are not dropped. */
 function quarterTurn(o){const cx=o.x+o.w/2,cz=o.z+o.d/2,w=o.d,d=o.w;o.w=w;o.d=d;o.x=cx-w/2;o.z=cz-d/2;o.q=(((o.q||0)+1)%4+4)%4;
   if(o.poly)o.poly=o.poly.map(([u,v])=>[+(1-v).toFixed(6),+u.toFixed(6)]);
-  else if(typeof S!=='undefined'&&S.objects.includes(o))for(const f of S.fixtures)if(f.obj===o.id)f.face=(f.face+1)%4;}
+  /* fixtures on the object: top ones turn their centre offset a quarter; side ones move to the face now in the same place */
+  if(typeof S!=='undefined'&&S.objects.includes(o))for(const f of S.fixtures)if(f.obj===o.id){if(f.top){const x=f.x;f.x=-f.z;f.z=x;}else if(!o.poly)f.face=(f.face+1)%4;}}
 function normRot(o){let r=o.rot||0,q=Math.floor((r+1e-6)/90);r-=q*90;if(r>90-1e-6){r-=90;q++;}if(r<1e-6)r=0;
   q=((q%4)+4)%4;for(let i=0;i<q;i++)quarterTurn(o);o.rot=+r.toFixed(4);}
 function absYaw(o){return(o.rot||0)+90*(o.q||0);}
@@ -107,7 +126,7 @@ function regen(g,origin){
   /* parts keep their id (and attachments) when a part of the same name comes back, so fixtures and attached items survive edits */
   const byName=new Map();for(const o of old)if(!byName.has(o.n))byName.set(o.n,o);
   const parts=P.build(g.preset.p).map(r=>{const m=byName.get(r.n);if(m)byName.delete(r.n);
-    return normObj({...r,id:m?m.id:uid('b'),vis:keep.vis,g:g.id,parent:m?m.parent:null,tag:m?m.tag:'',notes:m?m.notes:''});});
+    return normObj({...r,id:m?m.id:uid('b'),vis:keep.vis,g:g.id,parent:m?m.parent:null,pw:m?m.pw:null,pt:m?m.pt:0,pn:m?m.pn:0,pa:m?m.pa:0,tag:m?m.tag:'',notes:m?m.notes:''});});
   turnBlock(parts,g.preset.rot||0);
   const nb=bbox(parts);for(const p of parts){p.x+=o0.x-nb.x0;p.y+=o0.y-nb.y0;p.z+=o0.z-nb.z0;}
   if(firstIdx<0)S.objects.push(...parts);else S.objects.splice(Math.min(firstIdx,S.objects.length),0,...parts);
@@ -125,12 +144,12 @@ function moveSel(axis,off){const c=AX[axis][0];for(const o of selMove())o[c]+=of
 function targets(axis,ex){const t=[];
   if(axis==='y')t.push({v:0,k:'floor'},{v:S.ceil,k:'ceiling'});
   else{const i=axis==='x'?0:1;
-    for(const w of S.walls)if(Math.abs(w.a[i]-w.b[i])<1e-6)t.push({v:w.a[i],k:'wall'});
+    for(const w of S.walls)if(Math.abs(w.a[i]-w.b[i])<1e-6)t.push({v:w.a[i],k:'wall',n:'wall '+(S.walls.indexOf(w)+1)});
     for(const m of S.marks)if(Math.abs(m.a[i]-m.b[i])<1e-6)t.push({v:m.a[i],k:m.label||'line'});}
-  for(const o of S.objects){if(ex.has(o.id)||!visible(o)||o.rot)continue;const b=aabb(o);t.push({v:b[axis+'0'],k:'face'},{v:b[axis+'1'],k:'face'});}
+  for(const o of S.objects){if(ex.has(o.id)||!visible(o)||o.rot)continue;const b=aabb(o);t.push({v:b[axis+'0'],k:'face',n:objLabel(o)},{v:b[axis+'1'],k:'face',n:objLabel(o)});}
   return t;}
 function snapMove(min,size,axis,ex,tol,free,noFace){if(free)return{v:min,how:'free'};
-  if(!noFace){let best=null;for(const t of targets(axis,ex))for(const off of[0,size]){const d=Math.abs(t.v-(min+off));if(d<=tol&&(!best||d<best.d))best={d,v:t.v-off,how:t.k};}
+  if(!noFace){let best=null;for(const t of targets(axis,ex))for(const off of[0,size]){const d=Math.abs(t.v-(min+off));if(d<=tol&&(!best||d<best.d))best={d,v:t.v-off,how:t.k,n:t.n};}
     if(best)return best;}
   const st=S.snap;return{v:Math.round(min/st)*st,how:''};}
 /* angled walls: the axis targets above only cover walls along x or z. This moves the selection along the interior normal of
@@ -151,5 +170,5 @@ function alignToWall(){const list=selBoxes();if(!list.length||guardLocked())retu
   if(isFinite(mn))for(const o of selMove()){o.x-=n[0]*mn;o.z-=n[1]*mn;}
   commit();renderInspector();drawAll();flash(`Aligned to ${wallName(w)}: turned ${fmtIn(d)}° and pushed flush.`);}
 function snapEdge(v,axis,ex,tol,free,origin){if(free)return{v,how:'free'};
-  let best=null;for(const t of targets(axis,ex)){const d=Math.abs(t.v-v);if(d<=tol&&(!best||d<best.d))best={d,v:t.v,how:t.k};}
+  let best=null;for(const t of targets(axis,ex)){const d=Math.abs(t.v-v);if(d<=tol&&(!best||d<best.d))best={d,v:t.v,how:t.k,n:t.n};}
   if(best)return best;const st=S.snap,o=origin||0;return{v:o+Math.round((v-o)/st)*st,how:''};}

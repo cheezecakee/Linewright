@@ -111,15 +111,16 @@ function cmApply(L){if(S.lockCam){flash('The camera is locked. Untick Lock camer
   const notes=[],fov=clamp(r.fov,40,100),eye=clamp(r.eye,0.3,2.4);
   if(Math.abs(fov-r.fov)>0.5)notes.push(`the lens works out at ${r.fov.toFixed(0)}°, outside the 40–100° range, so it was clamped`);
   if(Math.abs(eye-r.eye)>0.01)notes.push(`the eye height works out at ${fmt(r.eye)} m, so it was clamped`);
-  S.yaw=r.yaw;S.fov=Math.round(fov);S.eye=+eye.toFixed(3);const ox=r.cx,oz=r.cz;S.cx=+r.cx.toFixed(3);S.cz=+r.cz.toFixed(3);clampCam();
-  if(Math.hypot(S.cx-ox,S.cz-oz)>0.02)notes.push('the camera stood outside the room, so it was moved to the nearest spot inside');
+  S.yaw=r.yaw;S.fov=Math.round(fov);S.eye=+eye.toFixed(3);S.pitch=+clamp(r.pitch,-80,80).toFixed(2);const ox=r.cx,oz=r.cz;S.cx=+r.cx.toFixed(3);S.cz=+r.cz.toFixed(3);clampCam();
+  if(Math.hypot(S.cx-ox,S.cz-oz)>0.02)notes.push('the camera stood far outside the room, so it was moved back to the nearest allowed spot');
   if(!r.eyeMeasured)notes.push(`eye height kept at ${fmt(S.eye)} m (link both lines of a pair to two parallel walls or lines to measure it)`);
   if(!r.posLinks)notes.push('position kept (link lines to walls to measure it)');
-  if(Math.abs(r.pitch)>2||Math.abs(r.roll)>1.5)notes.push(`the photo is tilted ${Math.abs(r.pitch).toFixed(1)}° ${r.pitch<0?'down':'up'}${Math.abs(r.roll)>1.5?` and rolled ${r.roll.toFixed(1)}°`:''}; the app's camera is level, so verticals won't line up exactly`);
+  if(Math.abs(r.roll)>1.5)notes.push(`the photo is rolled ${r.roll.toFixed(1)}°; the app's camera has no roll, so the photo is turned level instead and verticals won't line up exactly`);
   notes.push(...r.warn);
-  /* photo full width, unpinned, horizon level and on the canvas centre line */
-  L.pin=null;L.w=1;L.h=r.nat;L.rot=+(-r.hang).toFixed(3);const a=L.rot*Math.PI/180,dx=r.c[0]-r.hp[0],dy=r.c[1]-r.hp[1];
-  L.x=0.5+dx*Math.cos(a)-dy*Math.sin(a);L.y=0.375+dx*Math.sin(a)+dy*Math.cos(a);
-  const msg=`Camera matched: lens ${S.fov}°, eye ${fmt(S.eye)} m, turn ${S.yaw.toFixed(1)}°, at ${fmt(S.cx)}, ${fmt(S.cz)}.`;
+  /* photo full width, unpinned, horizon level; the horizon sits where the tilted camera puts it (centre line when level) */
+  L.pin=null;L.w=1;L.h=r.nat;L.rot=+(-r.hang).toFixed(3);const a=L.rot*Math.PI/180,dx=r.c[0]-r.hp[0],dy=r.c[1]-r.hp[1],
+    hy=0.375+0.5/Math.tan(S.fov*Math.PI/360)*Math.tan(S.pitch*Math.PI/180);
+  L.x=0.5+dx*Math.cos(a)-dy*Math.sin(a);L.y=hy+dx*Math.sin(a)+dy*Math.cos(a);
+  const msg=`Camera matched: lens ${S.fov}°, eye ${fmt(S.eye)} m, turn ${S.yaw.toFixed(1)}°${Math.abs(S.pitch)>0.05?`, ${S.pitch>0?'up':'down'} ${Math.abs(S.pitch).toFixed(1)}°`:''}, at ${fmt(S.cx)}, ${fmt(S.cz)}.`;
   L.cm.res=msg+(notes.length?' Note: '+notes.join('; ')+'.':'');cmOn=null;
   commit();syncCamUI();renderLayerProps();drawAll();flash(msg);}

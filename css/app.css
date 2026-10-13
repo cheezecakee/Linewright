@@ -41,7 +41,8 @@ header p{margin:0;color:var(--muted);font-size:14px}
 .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .toolbar .sep{width:1px;height:24px;background:var(--line);margin:0 2px}
 .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,26%);gap:8px;align-items:start;position:relative}
-.stage.v-plan{grid-template-columns:minmax(0,1fr)}
+.stage.v-plan,.stage.no-mini{grid-template-columns:minmax(0,1fr)}
+.stage.no-mini #board-v{display:none}
 @media (max-width:700px){.stage{grid-template-columns:minmax(0,1fr)}}
 .stage.drop::after{content:"Drop images to add layers, or a .json file to import";position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:16px;border:2px dashed var(--accent);background:color-mix(in srgb,var(--paper) 82%,transparent);color:var(--accent);font-size:18px;pointer-events:none}
 .board{background:var(--paper);border:1px solid var(--line);min-width:0;position:relative}
@@ -132,6 +133,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);paddin
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500}
 .tbl td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .tbl .sub{font-size:12px;color:var(--muted)}
+.tbl tr.grp td{background:color-mix(in srgb,var(--ink) 6%,transparent);padding-top:6px}
 .tagc{font-family:var(--f-mono);font-size:10px;padding:0 5px;border:1px solid;margin-left:6px;white-space:nowrap}
 /* sheet view */
 .stage.v-sheet{grid-template-columns:minmax(0,1fr)}
@@ -166,9 +168,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);paddin
 .addi{justify-self:start;font-size:12px;padding:2px 8px;border-style:dashed;background:transparent;color:var(--muted)}
 @media print{
   html,body{background:#fff!important}
-  body *{visibility:hidden}
-  #board-s,#board-s *{visibility:visible}
-  #board-s{position:absolute;left:0;top:0;width:100%;display:block!important}
+  /* print only the sheet: everything else leaves the layout, so no blank page comes first */
+  header,.viewbar,.toolbar,.legend,.status,.panel,.stage>.board:not(.sheet),.dlg-back{display:none!important}
+  .wrap,.main,.drawing,.stage{display:block!important;margin:0;padding:0;max-width:none}
+  #board-s{display:block!important}
   .np,.vf[aria-pressed="false"],.nsec .ib{display:none!important}
   .sheet-page{border:none;overflow:visible}
   .sheet-grid{break-before:page;padding:12mm;display:grid;grid-template-columns:1fr 1fr}
@@ -184,6 +187,18 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);paddin
 .dlg{background:var(--paper);color:var(--ink);border:1px solid var(--ink);max-width:460px;width:100%;padding:16px 18px;display:grid;gap:12px;box-shadow:0 12px 40px color-mix(in srgb,var(--ink) 25%,transparent)}
 .dlg h2{margin:0;font-size:18px;font-weight:600}
 .toolbar .tsel{width:auto;font-size:13px;padding:4px 4px}
+
+/* ---------- saved viewpoints, print frame ---------- */
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}
+#print-frame{display:none}
+@media print{
+  body.pp *{visibility:hidden}
+  body.pp #board-s{display:none!important}
+  body.pp .wrap,body.pp .dlg-back{display:none!important}
+  body.pp #print-frame{display:block;position:absolute;left:0;top:0;width:var(--pw);height:var(--ph)}
+  body.pp #print-frame,body.pp #print-frame *{visibility:visible}
+  body.pp #print-frame img{display:block;width:var(--pw);height:var(--ph)}
+}
 
 /* ---------- glow list ---------- */
 .glowpick{position:relative;display:inline-flex}
