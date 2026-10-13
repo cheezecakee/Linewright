@@ -15,11 +15,16 @@ Read this at the start of each phase. Tick items off (or delete them) when done.
 - [x] Front indicator on the selected object in the plan and mini plan.
 - [x] "Attaching to…" text while placing fixtures, doors and windows, and in the drag readout for objects.
 
+## Bugs fixed after pass 4
+- [x] Office chair (and any preset with extruded or quarter-turned parts): rotating with the plan handle left the star base and wheels misaligned and spun them. The drag now restores the quarter-turn count, footprints and fixture faces on every step.
+- [x] Scratchpad: dragging selected page text. The sheet drawing no longer allows text selection.
+
 ## Planned passes (agreed, not built)
 - [x] **Pass 2, fixtures round (built, to check in the browser):** own fixtures list on the Sheet (grouped by type, numbered like the drawing); eye toggle per fixture plus show/hide all; powerbox fixture (surface and recessed); pipe/hole fixture (water, drain, vent, conduit; wall, floor and ceiling anchors); Light coverage overlay (plan circles, floor rings in perspective).
 - [x] **Pass 3, structural (built, to check in the browser):** fixtures on top surfaces of objects (not hanging ones); objects attached to walls (VESA mount, wall shelves) with the wall anchoring; room rotation (90° steps first, then free angle; walls, rooms, objects, ceiling lights, scenarios).
-- [ ] **Pass 4:** Sheet scratchpad: lines, arrows, rectangles, text and manual dimensions in sheet coordinates, saved with the project and printed.
-- [ ] **Pass 5:** more catalog entries (presets and fixture types).
+- [x] **Pass 4 (built, to check in the browser):** Sheet scratchpad: lines, arrows, rectangles, text and dimension lines in sheet coordinates, saved with the project and printed. Share: link (gzip in the address), share sheet and file.
+- [x] **Pass 5 (built, to check in the browser):** base catalog (seating, bedroom, desks, storage, electronics incl. VESA wall mount, kitchen, bathroom, decor, music; nine fixture types), category filter and search in the Add panel.
+- [ ] **Later:** importable catalog packs (JSON with parametric parts), embedded in shared projects.
 - [ ] Later: layer views (wires, plumbing, main structure) with per-layer visibility; needs a layer tag on fixtures/objects.
 
 ## Phase 4 — built, to check in the browser

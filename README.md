@@ -31,6 +31,8 @@ The keys keep the old `rsg` prefix from the Room Sketch Guide days, so projects 
 
 **New** (header) clears the project and starts over, either with a room (4 × 5 m by default, any size you type) that has a window and an entrance door, or with nothing at all. Before it does, it offers **Export, then start new** so you keep a copy. Tags, shortcuts and settings stay, and Undo brings the previous project back until you close the page.
 
+**Share** (header) opens a dialog with a link and a file. The link holds the project, gzip-compressed, after `#p=` in the address: it only works where the app is hosted (from a `file://` page it would only open the same file), and very long links can be cut off by chat apps. **Share file…** uses the system share sheet where the browser offers it; **Download file** is the same as Export. Opening a shared link asks first, then imports it like a file (Undo brings the previous project back). Image layers are not included.
+
 **Export** downloads the project as `linewright-YYYY-MM-DD.json` and also copies it to the clipboard. Inside the claude.ai artifact the download can be blocked, so the clipboard copy is the reliable one there. **Import** loads a `.json` file. You can also drop the file on the drawing, or paste the JSON in Settings. Import replaces the room and objects, keeps image layers, and can be undone. Images are never exported.
 
 ---
@@ -115,11 +117,19 @@ The keys keep the old `rsg` prefix from the Room Sketch Guide days, so projects 
 
 ### Objects (both views)
 
-- **Add**: a plain box, an extruded **Shape**, or a parametric preset, grouped by category. Editing a preset's parameters regenerates its parts; parts keep their identity by name, so fixtures and attached items survive the edit.
+- **Add**: a plain box, an extruded **Shape**, or a parametric preset. Pick a **Category** or type in **Search the catalog** (matches name, category and tag); with neither, the last six items you used come first and the rest are grouped by category. Editing a preset's parameters regenerates its parts; parts keep their identity by name, so fixtures and attached items survive the edit.
   - *Desks and tables*: Desk / table (legs + apron), L-desk (return on either side, optional rolling drawer module), Round table.
   - *Storage*: Bookshelf, Drawer unit, Cube shelf (columns × rows), Wall shelf with brackets, Wall cabinet with door lines, Corner shelf (rect), Corner shelf (triangle or quarter round), Storage stool, Rolling cart.
   - *Electronics*: Monitor on a VESA arm, PC tower, Cable tray, ESD mat.
-  - *Seating and lighting*: Office chair (5-star base), Floor lamp.
+  - *Seating and lighting*: Office chair (5-star base), Floor lamp, Sofa (1–5 seats), L-sofa (chaise either side), Armchair, Dining chair, Bar stool.
+  - *Bedroom*: Bed (headboard, optional footboard), Bunk bed (ladder, guard rails), Nightstand.
+  - *Desks and tables (more)*: Standing desk (0.6–1.3 m), Monitor riser, Keyboard tray, Workbench (optional pegboard), Whiteboard (wall), Printer stand.
+  - *Storage (more)*: Wardrobe (hinged or sliding), Chest of drawers, TV unit, Shoe rack, Coat rack (wall), Bench.
+  - *Electronics (more)*: TV on stand, **VESA wall mount** (wall plate, arm, VESA plate and optional screen; attach it to its wall), Speaker on stand, Router, UPS, 3D printer, Server rack (19″, any number of units).
+  - *Kitchen and utility*: Base cabinet (doors or drawers), Fridge-freezer, Washing machine.
+  - *Bathroom*: Toilet, Vanity with basin, Shower tray and screen, Bath.
+  - *Decor*: Rug (rectangle or round), Plant in pot, Mirror (wall), Curtain and rail, Radiator (wall).
+  - *Music*: Keyboard on stand, Guitar stand, Drum kit footprint.
   - Wall shelves and cabinets start on the back wall; things that stand on a desk start at desk height.
 - **Extruded shapes**: any box can switch its footprint in the inspector (rectangle, corner triangle, quarter round, round, hexagon, 5-star). Picking, plan, snapping, resizing, measuring, clearances and the sheet all use the real outline. Nothing is tilted.
 - **Group / Ungroup**: grouped boxes are selected and moved as one.
@@ -154,6 +164,9 @@ Furniture inside a zone turns the zone red. It also adds a warning under the dra
 | Wall light | — | circle on a bracket |
 | Ceiling light | — | circle with a cross |
 | Power strip | 3, 4, 6 sockets | bar along the surface, one dot per socket |
+| Smoke detector, Ceiling fan, Sprinkler | — | ring with SD / CF / SP, x/z on the ceiling |
+| Thermostat, Intercom, Extractor fan, Radiator valve | — | ring or square with T / IC / EF / RV just off the wall |
+| Access hatch (wall, ceiling) | — | square with AH |
 | Power box | surface mounted, recessed | rectangle against the wall (to scale) with DB |
 | Pipe (wall) | water 15 / 22 mm, drain 50 / 110 mm, vent / duct 100 mm, cable conduit 25 mm | ring on the wall line with a centre dot |
 | Pipe (floor) | same | solid ring with a centre dot, x/z on the floor |
@@ -187,6 +200,7 @@ Furniture inside a zone turns the zone red. It also adds a warning under the dra
   - Enter adds an item, and Backspace on an empty item deletes it.
   - Any item can carry a **verify** mark.
 - **Dimensions**: only stored values are shown (wall lengths, opening sizes). There is no automatic dimensioning.
+- **Scratchpad** (Sheet panel): draw on the page with **Line**, **Arrow**, **Rectangle**, **Text** and **Dimension**. Select marks to move them, drag their square handles to reshape, edit text or a dimension's label in the panel, Delete removes one. A dimension reads its length at the sheet scale unless it has its own label. Shift keeps 15° steps, Alt turns the half-millimetre snap off. Marks are in page millimetres: they stay where you put them if the scale or paper changes, they print with the sheet and are part of Undo and Export.
 - **Print sheet** sets the matching page size. Print at 100% (no "fit to page") to keep the scale.
 
 ---
@@ -262,14 +276,14 @@ Order matters: each file uses globals from the ones before it, and `ui.js` boots
 | `js/measure.js` | Measure tool (plan + ray picking), clearance zones and intrusion checks |
 | `js/cutlist.js` | Cut list from preset `cuts()` |
 | `js/paper.js` | Paper sizes/scales, perspective paper frame, paper controls, `printPaper()` |
-| `js/sheet.js` | Sheet layout, plan/elevation SVG, spec table, notes editor, legend, print setup |
+| `js/sheet.js` | Sheet layout, plan/elevation SVG, spec table, fixtures list, notes editor, legend, print setup, scratchpad marks |
 | `js/ui.js` | Views and panels, controls, inspector, object list, add buttons, tags, legend, trace highlight, New project dialog, shortcut settings, import/export, status line, sizing, `drawAll`/`renderAll`, boot |
 
 ---
 
-## Data model (schema v8)
+## Data model (schema v9)
 
-`S` holds the whole project. `migrate(raw)` accepts every earlier version (v0 boxes, v1 objects with a fixed room, v2 walls, v3, v4, v5) and returns a complete current state. v7 files load with nothing attached to walls and every fixture on a side face or wall as before. v6 files load with every door and window unlocked and fixtures hidden in the mini plan. v5 files load with concrete walls, a level camera, no saved views and solid off. v4 files load with every box plain and unturned (`poly: null`, `q: 0`), every fixture on its wall or the ceiling, every layer flat, and no scenarios. The steps for adding a field are under "Conventions for extending".
+`S` holds the whole project. `migrate(raw)` accepts every earlier version (v0 boxes, v1 objects with a fixed room, v2 walls, v3, v4, v5) and returns a complete current state. v8 files load with an empty scratchpad. v7 files load with nothing attached to walls and every fixture on a side face or wall as before. v6 files load with every door and window unlocked and fixtures hidden in the mini plan. v5 files load with concrete walls, a level camera, no saved views and solid off. v4 files load with every box plain and unturned (`poly: null`, `q: 0`), every fixture on its wall or the ceiling, every layer flat, and no scenarios. The steps for adding a field are under "Conventions for extending".
 
 | Key | Shape |
 |---|---|
@@ -284,7 +298,7 @@ Order matters: each file uses globals from the ones before it, and `ui.js` boots
 | `notes` | Sheet notes: `[{id, title, items:[{id, text, verify}]}]` |
 | `layers` | Image layer metadata (pixels live in IndexedDB). `pin`: four corners in canvas-width units, or `null` when flat. `cm`: camera-match traces `{lines, on, res}` in the layer's own 0..1 rectangle. |
 | `scenarios` | `[{id, name, grp:{gid:{x0,y0,z0,rot,vis}}, pos:{oid:{cx,cz,y,a,vis}}}]`, plus `scenario` (active id) and `ghost` (id shown dashed) |
-| `sheet` | `{title, elev:[{wall, flip}], depth, init}` |
+| `sheet` | `{title, elev:[{wall, flip}], depth, init, draw:[{id, k:'line'\|'arrow'\|'rect'\|'text'\|'dim', a:[x,y], b:[x,y], t}]}`. `draw` is the scratchpad, in sheet-page millimetres (`b` is the end, or the opposite corner for a rectangle; `t` the text or a dimension's label). |
 | `paper` | `{size:'A4'\|'A3', orient, scale, persp, grid}` |
 | `views` | Saved viewpoints `[{id, name, cx, cz, eye, yaw, pitch, fov}]` |
 | view settings | `cx, cz, eye, yaw, pitch, fov, ceil, view, panels, snap, guides, grid, labels, trace, traceHL, lockCam, lockWalls, solid, miniPlan, fxMini, colorTags, hiddenTags, showClr, showLight` (`traceHL` = list of `'tag:…'`, `'kind:…'`, `'item:g:…'`, `'item:b:…'` that glow in trace mode; `pitch` in degrees, positive looks up). Plan zoom and pan are not stored. |
@@ -298,7 +312,7 @@ Two internals worth knowing:
 ## Conventions for extending
 
 - **New preset**: add an entry to `PRESETS` with `label`, `category`, `tag`, `defaults`, `fields`, `fix(p)`, `build(p)` and optionally `cuts(p)`, `wall: true` (start on the back wall) and `y0(p)` (starting height). Fields are `[key, label, 'm' | '#']` or `[key, label, 'opt', [[value, label], …]]`. A part with `poly` is an extruded shape (see `SHAPES`). Give parts stable, unique names so edits keep their identity. The Add panel and the cut list pick it up automatically.
-- **New fixture type or variant**: edit `FX` in `state.js`, set `n` (sockets/gangs), `k` (kind) and optionally `d` (diameter, for round marks) on the variant; `ceil`/`floor` anchor a type by x/z, `r` gives it a Light coverage reach, `round` draws it as a circle; and draw it in `fxDetail()`, `fxSymbol()` and `fxSvgPlan()` in `fixtures.js`.
+- **New fixture type or variant**: edit `FX` in `state.js`, set `n` (sockets/gangs), `k` (kind) and optionally `d` (diameter, for round marks) on the variant; `sym` is the short text shown in the plan symbol, `rect` draws a square instead of a ring; `ceil`/`floor` anchor a type by x/z, `r` gives it a Light coverage reach, `round` draws it as a circle; and draw it in `fxDetail()`, `fxSymbol()` and `fxSvgPlan()` in `fixtures.js`.
 - **New shortcut**: add `[id, label, defaultKey, group]` to `ACTIONS` and a handler to `RUN` in `interact.js`. The settings list builds itself from them.
 - **New saved field**: bump `SCHEMA`, normalize the field in `migrate()`, add it to `HKEYS` if Undo should cover it and to `SCENE_KEYS` if Export should include it.
 - **Drags**: set the global `drag` with a `view` of `'p'` or `'v'`. `endDrag()` commits if it moved and calls `drag.onEnd` first.
@@ -325,7 +339,7 @@ Two internals worth knowing:
 
 ## Status
 
-Phases 1–3 are built: plan, perspective and sheet; rooms, openings, fixtures, attachments, clearances and cut list; image corner-pin, angled walls, the object catalog and extruded shapes, scenarios, camera matching and fixtures on objects. Later additions: fixture locking, the perspective Fixtures panel, New project and the trace Glow picker. Pass 3 added fixtures on top surfaces, objects attached to walls and room rotation. Pass 2 added the Sheet fixtures list, fixture visibility, the power box and pipe fixtures and Light coverage. Pass 1 of the later round added locked doors and windows, window height in the perspective, locks that carry over to fixtures, click-through locked objects, the front mark and the "attaching to" label. Phase 4 added plan pan and zoom, perspective mouse look, pitch, orbit, flying, framing and saved viewpoints, solid view, wall materials, lock walls and Print frame.
+Phases 1–3 are built: plan, perspective and sheet; rooms, openings, fixtures, attachments, clearances and cut list; image corner-pin, angled walls, the object catalog and extruded shapes, scenarios, camera matching and fixtures on objects. Later additions: fixture locking, the perspective Fixtures panel, New project and the trace Glow picker. Pass 5 added the base catalog (about 45 new objects and 9 fixture types) with a category filter and search. Pass 4 added the Sheet scratchpad and Share. Pass 3 added fixtures on top surfaces, objects attached to walls and room rotation. Pass 2 added the Sheet fixtures list, fixture visibility, the power box and pipe fixtures and Light coverage. Pass 1 of the later round added locked doors and windows, window height in the perspective, locks that carry over to fixtures, click-through locked objects, the front mark and the "attaching to" label. Phase 4 added plan pan and zoom, perspective mouse look, pitch, orbit, flying, framing and saved viewpoints, solid view, wall materials, lock walls and Print frame.
 
 What's next lives in `docs/BACKLOG.md`. A **Polish** pass with collected cosmetic tweaks happens at the end; add items to the backlog rather than fixing them one by one.
 

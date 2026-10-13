@@ -11,6 +11,7 @@
    v6 adds: wall material (type 'concrete' | 'wood', wood style + slat width/gap), camera pitch, saved viewpoints (views),
    and the view settings solid, miniPlan and lockWalls (all optional; older files get concrete walls, a level camera and no views).
    v7 adds: o.locked on openings (doors and windows can be locked) and the view setting fxMini (fixtures shown in the mini plan).
+   v9 adds: sheet.draw, the Sheet scratchpad marks (lines, arrows, rectangles, text, dimension lines in page millimetres).
    v8 adds: fixtures on the top surface of an object (f.top; f.x/f.z are then offsets from the object's centre in its own axes)
    and objects attached to a wall (o.pw = wall id; o.pt / o.pn / o.pa = position along the wall, distance from its face and
    angle relative to the wall's front, refreshed on every commit so the object follows the wall).
@@ -20,7 +21,7 @@
    Also: tags, project notes, image layers (metadata only; image data lives in IndexedDB). */
 
 /* storage keys keep the old 'rsg' prefix (rsg, rsg-keys, rsg-layers) so projects saved before the rename still load */
-const APP_ID='linewright',SCHEMA=8;
+const APP_ID='linewright',SCHEMA=9;
 const VIEWS={
   door:{cx:1.27,cz:4.4,eye:1.55,yaw:0,fov:70},
   corner:{cx:2.3,cz:3.2,eye:1.6,yaw:-32,fov:75},
@@ -79,6 +80,9 @@ function normObj(o){return{id:o.id||uid('b'),n:String(o.n??'Box'),x:+o.x||0,y:+o
   w:Math.max(0,+o.w||0),d:Math.max(0,+o.d||0),h:Math.max(0,+o.h||0),rot:+o.rot||0,q:((Math.round(+o.q||0)%4)+4)%4,poly:normPoly(o.poly),vis:o.vis!==false,g:o.g||null,
   tag:o.tag||'',notes:String(o.notes||''),locked:!!o.locked,parent:o.parent||null,pw:o.pw?String(o.pw):null,pt:+o.pt||0,pn:+o.pn||0,pa:+o.pa||0,po:o.po&&typeof o.po==='object'?{x:+o.po.x||0,y:+o.po.y||0,z:+o.po.z||0}:null,
   clr:Math.max(0,+o.clr||0),clrLabel:String(o.clrLabel||'')};}
+/* sheet scratchpad marks: {id, k:'line'|'arrow'|'rect'|'text'|'dim', a:[x,y], b:[x,y], t} in sheet-page millimetres */
+function normDraw(a){const ok=['line','arrow','rect','text','dim'],pt=p=>Array.isArray(p)&&p.length===2&&isFinite(+p[0])&&isFinite(+p[1])?[+p[0],+p[1]]:null;
+  return(Array.isArray(a)?a:[]).filter(m=>m&&ok.includes(m.k)&&pt(m.a)).map(m=>({id:m.id||uid('k'),k:m.k,a:pt(m.a),b:pt(m.b)||pt(m.a),t:String(m.t||'')}));}
 function normGroup(g){return{id:g.id,n:String(g.n??'Group'),vis:g.vis!==false,preset:g.preset||null,tag:g.tag||'',
   notes:String(g.notes||''),rot:+g.rot||0,locked:!!g.locked,clr:Math.max(0,+g.clr||0),clrLabel:String(g.clrLabel||'')};}
 /* notes: titled sections; accepts older plain strings */
@@ -100,12 +104,22 @@ const PIPE_V={water15:{label:'Water supply 15 mm',d:0.015,k:'water'},water22:{la
 const FX={
   outlet:{label:'Outlet',w:0.08,h:0.08,y:0.3,variants:{
     single:{label:'Single',n:1},double:{label:'Double',n:2},triple:{label:'Triple',n:3},
-    high:{label:'High current (20 A)',n:1,k:'high'},usb:{label:'With USB',n:1,k:'usb'},data:{label:'Data (RJ45)',n:1,k:'data'},tv:{label:'TV / coax',n:1,k:'tv'}}},
+    high:{label:'High current (20 A)',n:1,k:'high'},usb:{label:'With USB',n:1,k:'usb'},data:{label:'Data (RJ45)',n:1,k:'data'},cat6:{label:'Network (Cat6)',n:2,k:'data'},
+    fibre:{label:'Fibre (optical)',n:1,k:'data'},tv:{label:'TV / coax',n:1,k:'tv'}}},
   switch:{label:'Switch',w:0.08,h:0.12,y:1.1,variants:{
     g1:{label:'1-gang',n:1},g2:{label:'2-gang',n:2},g3:{label:'3-gang',n:3},twoway:{label:'Two-way',n:1,k:'twoway'},dimmer:{label:'Dimmer',n:1,k:'dimmer'}}},
   wlight:{label:'Wall light',w:0.24,h:0.14,y:2.0,r:1.0,nottop:true},
   clight:{label:'Ceiling light',w:0.3,h:0.3,ceil:true,r:1.5},
   strip:{label:'Power strip',w:0.1,h:0.05,y:0.05,variants:{s3:{label:'3 sockets',n:3},s4:{label:'4 sockets',n:4},s6:{label:'6 sockets',n:6}}},
+  smoke:{label:'Smoke detector',w:0.1,h:0.1,ceil:true,round:true,sym:'SD'},
+  thermo:{label:'Thermostat',w:0.09,h:0.09,y:1.5,sym:'T'},
+  intercom:{label:'Intercom',w:0.1,h:0.16,y:1.4,sym:'IC'},
+  fan:{label:'Extractor fan',w:0.15,h:0.15,y:2.2,round:true,sym:'EF'},
+  cfan:{label:'Ceiling fan',w:1.2,h:1.2,ceil:true,round:true,sym:'CF'},
+  sprinkler:{label:'Sprinkler',w:0.06,h:0.06,ceil:true,round:true,sym:'SP'},
+  hatch:{label:'Access hatch (wall)',w:0.4,h:0.4,y:0.6,rect:true,sym:'AH'},
+  hatchc:{label:'Access hatch (ceiling)',w:0.5,h:0.5,ceil:true,rect:true,sym:'AH'},
+  radvalve:{label:'Radiator valve',w:0.05,h:0.05,y:0.2,round:true,sym:'RV',tag:'plumbing'},
   powerbox:{label:'Power box',w:0.3,h:0.4,y:1.5,variants:{surface:{label:'Surface mounted',n:1,k:'surface'},recessed:{label:'Recessed',n:1,k:'recessed'}}},
   pipe:{label:'Pipe (wall)',w:0.05,h:0.05,y:0.3,round:true,nottop:true,tag:'plumbing',variants:PIPE_V},
   pipef:{label:'Pipe (floor)',w:0.05,h:0.05,floor:true,round:true,tag:'plumbing',variants:PIPE_V},
@@ -136,7 +150,7 @@ function copyTags(){return TAG_DEFAULTS.map(t=>({...t,c:[...t.c]}));}
    v4 → v5: objects get q = 0 (quarter turns) and poly = null (a plain box); fixtures get obj = null (on a wall or the ceiling);
    layers get pin = null (flat) and cm = null; scenarios start empty. Nothing else changes meaning. */
 function migrate(raw){
-  const s={...DEF,...defaultScene(),tags:copyTags(),panels:{...DEF.panels},paper:{...DEF.paper},sheet:{...DEF.sheet,elev:[]},scenarios:[],scenario:null,ghost:null,views:[]};
+  const s={...DEF,...defaultScene(),tags:copyTags(),panels:{...DEF.panels},paper:{...DEF.paper},sheet:{...DEF.sheet,elev:[],draw:[]},scenarios:[],scenario:null,ghost:null,views:[]};
   if(!raw||typeof raw!=='object')return s;
   const v=+raw.version||1;
   for(const k of['cx','cz','eye','yaw','pitch','fov','ceil','guides','grid','labels','trace','traceHL','lockCam','snap','colorTags','solid','miniPlan','fxMini','showLight','lockWalls'])if(raw[k]!==undefined)s[k]=raw[k];
@@ -178,7 +192,7 @@ function migrate(raw){
   s.traceHL=Array.isArray(s.traceHL)?s.traceHL.filter(x=>typeof x==='string'):typeof s.traceHL==='string'&&s.traceHL?[s.traceHL]:[];
   s.paper={...DEF.paper,...(raw.paper&&typeof raw.paper==='object'?raw.paper:{})};
   const sh=raw.sheet&&typeof raw.sheet==='object'?raw.sheet:{};
-  s.sheet={...DEF.sheet,...sh,elev:(Array.isArray(sh.elev)?sh.elev:[]).filter(e=>e&&e.wall).map(e=>({wall:e.wall,flip:!!e.flip}))};
+  s.sheet={...DEF.sheet,...sh,elev:(Array.isArray(sh.elev)?sh.elev:[]).filter(e=>e&&e.wall).map(e=>({wall:e.wall,flip:!!e.flip})),draw:normDraw(sh.draw)};
   s.version=SCHEMA;
   for(const k of['boxes','sill','beyond','tab'])delete s[k];
   return s;
@@ -241,7 +255,7 @@ function cleanGroups(){S.groups=S.groups.filter(g=>S.objects.some(o=>o.g===g.id)
 
 /* import / export (scene only, no images) */
 const SCENE_KEYS=['traceHL','cx','cz','eye','yaw','pitch','views','solid','lockWalls','fov','ceil','walls','openings','rooms','marks','objects','groups','tags','notes','snap','colorTags','hiddenTags','guides','grid','labels','fixtures','sheet','paper','showClr','showLight','scenarios','scenario','ghost'];
-function exportScene(){const o={app:APP_ID,version:SCHEMA,exported:new Date().toISOString()};for(const k of SCENE_KEYS)o[k]=S[k];return JSON.stringify(o,null,1);}
+function exportScene(compact){const o={app:APP_ID,version:SCHEMA,exported:new Date().toISOString()};for(const k of SCENE_KEYS)o[k]=S[k];return JSON.stringify(o,null,compact?0:1);}
 function importScene(text){
   let raw;try{raw=JSON.parse(text);}catch(e){throw new Error("That isn't valid JSON. Check that the whole file was pasted.");}
   if(!raw||typeof raw!=='object'||(!raw.walls&&!raw.objects&&!raw.boxes))throw new Error('No room or objects found in that file.');

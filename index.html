@@ -14,6 +14,7 @@
     <button id="b-import" type="button">Import</button>
     <input id="f-import" type="file" accept=".json,application/json" hidden>
     <button id="b-export" type="button">Export</button>
+    <button id="b-share" type="button" title="Share the project as a link or a file">Share</button>
     <button id="b-settings" type="button" aria-pressed="false">Settings</button>
   </div>
 </header>
@@ -33,7 +34,7 @@
       <button type="button" data-tool="room" data-only="plan" title="Draw a room outline (Shift+W)">Room</button>
       <button type="button" data-tool="door" data-only="plan" title="Add a door on a wall (O)">Door</button>
       <button type="button" data-tool="window" data-only="plan" title="Add a window on a wall (Shift+O)">Window</button>
-      <span class="fxpick" data-only="plan"><button type="button" data-tool="fixture" title="Add a fixture (F)">Fixture</button><select id="fx-type" aria-label="Fixture type"><option value="outlet">Outlet</option><option value="switch">Switch</option><option value="wlight">Wall light</option><option value="clight">Ceiling light</option><option value="strip">Power strip</option><option value="powerbox">Power box</option><option value="pipe">Pipe (wall)</option><option value="pipef">Pipe (floor)</option><option value="pipec">Pipe (ceiling)</option></select></span>
+      <span class="fxpick" data-only="plan"><button type="button" data-tool="fixture" title="Add a fixture (F)">Fixture</button><select id="fx-type" aria-label="Fixture type"></select></span>
       <button type="button" data-tool="mark" data-only="plan" title="Add a reference line (E)">Line</button>
       <span class="sep"></span>
       <button type="button" data-tool="measure" title="Measure (M)">Measure</button>
@@ -200,6 +201,13 @@
         <div class="row"><label for="sh-depth">Depth shown</label><input id="sh-depth" type="range" min="0.2" max="4" step="0.05"><output id="o-sh-depth"></output></div>
         <p class="note">Each elevation looks at the wall from inside the room and shows what stands within that distance of it.</p>
       </fieldset>
+      <fieldset>
+        <legend>Scratchpad</legend>
+        <div class="chips" id="sk-tools"></div>
+        <div id="sk-props" style="display:grid;gap:4px"></div>
+        <div class="chips"><button id="sk-del" type="button">Delete selected</button><button id="sk-clear" type="button">Clear all</button></div>
+        <p class="note">Draw on the sheet: lines, arrows, rectangles, text and dimension lines. A dimension reads its length at the sheet scale unless you type a label. <kbd>Shift</kbd> keeps 15° steps (squares for rectangles), <kbd>Alt</kbd> turns the half-millimetre snap off, <kbd>Delete</kbd> removes the selected mark, <kbd>Esc</kbd> leaves the tool. Marks stay where you put them when the scale or paper changes, and they print.</p>
+      </fieldset>
     </section>
 
     <section class="tabpanel" data-panel="objects">
@@ -209,6 +217,8 @@
       </fieldset>
       <fieldset>
         <legend>Add</legend>
+        <div class="ig"><label class="wide" for="add-q"><span>Search the catalog</span><input id="add-q" type="search" placeholder="sofa, shelf, VESA, bath…" autocomplete="off"></label>
+          <label for="add-cat"><span>Category</span><select id="add-cat"></select></label></div>
         <div class="addlist" id="add-chips"></div>
         <p class="note">Metres. x from the left wall, y from the floor, z from the window wall. Wall shelves and cabinets start on the back wall; things that stand on a desk start at desk height (Shift-drag onto the desk to attach them).</p>
       </fieldset>
@@ -297,6 +307,17 @@
       <label class="inl"><input type="radio" name="new-kind" id="new-empty"> Start empty and draw the walls</label>
     </div>
     <div class="chips"><button id="new-export" type="button">Export, then start new</button><button id="new-go" type="button">Start new without saving</button><button id="new-cancel" type="button">Cancel</button></div>
+  </div>
+</div>
+
+<div class="dlg-back" id="share-dlg" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="share-h">
+    <h2 id="share-h">Share this project</h2>
+    <p class="note">The project (walls, objects, fixtures, notes, sheet) travels in the link or the file. Image layers aren't included. Whoever opens it gets a copy; yours isn't changed.</p>
+    <label class="fl" for="share-link">Link</label>
+    <textarea id="share-link" class="tx" rows="3" readonly></textarea>
+    <p class="note" id="share-note"></p>
+    <div class="chips"><button id="share-copy" type="button">Copy link</button><button id="share-file" type="button">Share file…</button><button id="share-save" type="button">Download file</button><button id="share-close" type="button">Close</button></div>
   </div>
 </div>
 

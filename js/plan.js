@@ -105,13 +105,17 @@ function planHit(p,tol){const X=planXf(),s=X.s,it=single();
     if(inFoot(o,w,pad)){const ar=Math.max(o.w,.005)*Math.max(o.d,.005);if(ar<ba){ba=ar;best=o;}}}
   return best?{t:'box',o:best}:{t:'none'};}
 
-function snapshotSel(){const st={};for(const o of selMove())st[o.id]={x:o.x,y:o.y,z:o.z,w:o.w,d:o.d,h:o.h,rot:o.rot};
-  const gr={};for(const k of sel)if(k[0]==='g'){const g=grpById(k.slice(2));if(g)gr[g.id]={rot:g.rot,prot:g.preset?g.preset.rot:0};}return{st,gr};}
+/* everything a turn can change: a quarter turn swaps w and d, bumps q and turns the footprint polygon and the face or top offset of
+   fixtures on the object, so those are saved and put back too (otherwise each pass over 90° during a drag adds another turn) */
+function snapshotSel(){const st={},fx={},ms=selMove(),ids=new Set(ms.map(o=>o.id));
+  for(const o of ms)st[o.id]={x:o.x,y:o.y,z:o.z,w:o.w,d:o.d,h:o.h,rot:o.rot,q:o.q,poly:o.poly?o.poly.map(p=>p.slice()):null};
+  for(const f of S.fixtures)if(f.obj&&ids.has(f.obj))fx[f.id]={face:f.face,x:f.x,z:f.z};
+  const gr={};for(const k of sel)if(k[0]==='g'){const g=grpById(k.slice(2));if(g)gr[g.id]={rot:g.rot,prot:g.preset?g.preset.rot:0};}return{st,gr,fx};}
 
 pv.addEventListener('pointerdown',e=>{
   if(e.button>0)return;const p=cpos(e,pv);if(planToolDown(e,p))return;const tol=(e.pointerType==='touch'?18:8)*KP,h=planHit(p,tol);
   if(psel&&h.t==='box'){psel=null;renderRooms();}
-  if(h.t==='rot'){const sn=snapshotSel();drag={view:'v',t:'rot',c:h.c,a0:Math.atan2(p[1]-h.c[1],p[0]-h.c[0]),st:sn.st,gr:sn.gr,start:p,cur:p,moved:false};}
+  if(h.t==='rot'){const sn=snapshotSel();drag={view:'v',t:'rot',c:h.c,a0:Math.atan2(p[1]-h.c[1],p[0]-h.c[0]),st:sn.st,gr:sn.gr,fx:sn.fx,start:p,cur:p,moved:false};}
   else if(h.t==='corner')drag={view:'v',t:'corner',i:h.i,start:p,cur:p,bb0:bbox(selBoxes()),moved:false};
   else if(h.t==='cam')drag={view:'v',t:'cam',start:p,cur:p,moved:false};
   else if(h.t==='box'){const k=keyOf(h.o);
@@ -143,7 +147,8 @@ pv.addEventListener('pointermove',e=>{
     const z0=minZ?Math.min(rz.v,b.z1-0.01):b.z0,z1=minZ?b.z1:Math.max(rz.v,b.z0+0.01);
     setExtent(it,'x',x0,x1-x0);setExtent(it,'z',z0,z1-z0);drag.text=`w ${fmt(x1-x0)}  d ${fmt(z1-z0)} m`;updateInspector();}
   else if(drag.t==='rot'){let deg=(Math.atan2(p[1]-drag.c[1],p[0]-drag.c[0])-drag.a0)*180/Math.PI;deg=normDeg(deg);if(!free)deg=Math.round(deg/15)*15;
-    for(const o of selMove()){const s0=drag.st[o.id];if(s0)Object.assign(o,s0);}
+    for(const o of selMove()){const s0=drag.st[o.id];if(s0)Object.assign(o,s0,{poly:s0.poly?s0.poly.map(q=>q.slice()):null});}
+    for(const f of S.fixtures){const s0=drag.fx&&drag.fx[f.id];if(s0)Object.assign(f,s0);}
     for(const id in drag.gr){const g=grpById(id);if(!g)continue;g.rot=drag.gr[id].rot;if(g.preset)g.preset.rot=drag.gr[id].prot;}
     rotateItems(selBoxes(),deg,false);addGroupRot(sel,deg);drag.text=`rotation ${deg>0?'+':''}${fmtIn(deg)}°`;updateInspector();}
   else if(drag.t==='cam'){if(S.lockCam)return;const cb=camBounds();S.cx=clamp(w[0],cb.x0,cb.x1);S.cz=clamp(w[1],cb.z0,cb.z1);syncCamUI();drag.text=`camera ${fmt(S.cx)}, ${fmt(S.cz)} m`;}

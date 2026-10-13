@@ -63,7 +63,9 @@ function fxDetail(f){const V=fxVariant(f),n=V?V.n||1:1,k=V&&V.k,D={lines:[],rect
 function fxOutline(f){const T=FX[f.type],Z=fxSize(f);
   if(fxTop(f)){const A=fxPlan(f);if(!A)return null;const ca=Math.cos(A.ang),sa=Math.sin(A.ang),hw=Z.w/2,hh=Z.h/2,y=fxY(f)+0.002;
     return[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([a,b])=>[A.p[0]+a*ca-b*sa,y,A.p[1]+a*sa+b*ca]);}
-  if(T.flat){const r=Z.w/2,pts=[],y=T.floor?0.002:S.ceil-0.002;for(let i=0;i<16;i++){const a=i/16*Math.PI*2;pts.push([f.x+Math.cos(a)*r,y,f.z+Math.sin(a)*r]);}return pts;}
+  if(T.flat){const r=Z.w/2,pts=[],y=T.floor?0.002:S.ceil-0.002;
+    if(T.rect){const hw=Z.w/2,hh=Z.h/2;return[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([a,b])=>[f.x+a,y,f.z+b]);}
+    for(let i=0;i<16;i++){const a=i/16*Math.PI*2;pts.push([f.x+Math.cos(a)*r,y,f.z+Math.sin(a)*r]);}return pts;}
   const A=fxPlan(f);if(!A)return null;const e=0.002,hw=Z.w/2,hh=Z.h/2,y=fxY(f),P=(t,yy)=>[A.p[0]+A.u[0]*t+A.n[0]*e,yy,A.p[1]+A.u[1]*t+A.n[1]*e];
   if(T.round){const pts=[];for(let i=0;i<16;i++){const a=i/16*Math.PI*2;pts.push(P(Math.cos(a)*hw,y+Math.sin(a)*hw));}return pts;}
   return[P(-hw,y-hh),P(hw,y-hh),P(hw,y+hh),P(-hw,y+hh)];}
@@ -84,7 +86,7 @@ function drawFixturesP(){const T=S.trace;
     for(const[a,b]of D.lines)seg(P(a[0],a[1]),P(b[0],b[1]),st);
     for(const[t0,y0,t1,y1]of D.rects)poly([P(t0,y0),P(t1,y0),P(t1,y1),P(t0,y1)],st);
     for(const[t,y,r]of D.circles){const c=[];for(let i=0;i<10;i++){const a=i/10*Math.PI*2;c.push(P(t+Math.cos(a)*r,y+Math.sin(a)*r));}poly(c,st);}}
-  if(S.labels&&!T)for(const f of S.fixtures){if(!fxVisible(f))continue;const pts=fxOutline(f);if(!pts)continue;const p=pts[FX[f.type].flat?4:3];
+  if(S.labels&&!T)for(const f of S.fixtures){if(!fxVisible(f))continue;const pts=fxOutline(f);if(!pts)continue;const p=pts[Math.min(pts.length-1,FX[f.type].flat?4:3)];
     label([p[0],p[1]+(FX[f.type].ceil?-0.06:0.02),p[2]],f.n,fxColor(f));}}
 
 /* ---------- perspective: picking and the two-axis gizmo ---------- */
@@ -146,9 +148,16 @@ function fxSymbol(c,f,X,k,col,lw){const A=fxPlan(f);if(!A)return null;
     if(f.type==='clight'){const r=8*k;c.beginPath();c.arc(p[0],p[1],r,0,7);c.stroke();
       const q=r*0.7;c.beginPath();c.moveTo(p[0]-q,p[1]-q);c.lineTo(p[0]+q,p[1]+q);c.moveTo(p[0]-q,p[1]+q);c.lineTo(p[0]+q,p[1]-q);c.stroke();return p;}
     /* pipe through the floor (solid ring) or ceiling (dashed ring), with a centre dot */
-    const r=Math.max(fxSize(f).w/2*X.s,3.5*k);if(FX[f.type].ceil)c.setLineDash([3*k,2*k]);c.beginPath();c.arc(p[0],p[1],r,0,7);c.stroke();c.setLineDash([]);
-    c.beginPath();c.arc(p[0],p[1],1.3*k,0,7);c.fill();return p;}
+    const T0=FX[f.type],r=Math.max(fxSize(f).w/2*X.s,T0.sym?6*k:3.5*k);if(T0.ceil)c.setLineDash([3*k,2*k]);c.beginPath();
+    if(T0.rect)c.rect(p[0]-r,p[1]-r,2*r,2*r);else c.arc(p[0],p[1],r,0,7);c.stroke();c.setLineDash([]);
+    if(T0.sym){c.font=`600 ${5.5*k}px "IBM Plex Mono",monospace`;const tw=c.measureText(T0.sym).width;c.fillText(T0.sym,p[0]-tw/2,p[1]+2*k);}
+    else{c.beginPath();c.arc(p[0],p[1],1.3*k,0,7);c.fill();}
+    return p;}
   const w0=X.to(A.p[0],A.p[1]),nn=A.n,uu=A.u,V=fxVariant(f),kd=V&&V.k,d=f.type==='switch'?9:11,ctr=[w0[0]+nn[0]*d*k,w0[1]+nn[1]*d*k],r=6*k;
+  if(FX[f.type].sym){/* labelled wall item (thermostat, intercom, fan, hatch, valve): a ring or square with its letters, just off the wall */
+    const T0=FX[f.type],r=Math.max(T0.w/2*X.s,6*k),cc=[w0[0]+nn[0]*(r+1*k),w0[1]+nn[1]*(r+1*k)];c.beginPath();
+    if(T0.rect)c.rect(cc[0]-r,cc[1]-r,2*r,2*r);else c.arc(cc[0],cc[1],r,0,7);c.stroke();
+    c.font=`600 ${5.5*k}px "IBM Plex Mono",monospace`;const tw=c.measureText(T0.sym).width;c.fillText(T0.sym,cc[0]-tw/2,cc[1]+2*k);return cc;}
   if(f.type==='pipe'){/* hole or pipe in the wall: a ring on the wall line with a centre dot */
     const r=Math.max(fxSize(f).w/2*X.s,3.2*k);c.beginPath();c.arc(w0[0],w0[1],r,0,7);c.stroke();c.beginPath();c.arc(w0[0],w0[1],1.2*k,0,7);c.fill();return w0;}
   if(f.type==='powerbox'){/* distribution box: a rectangle against the wall (to scale, at least 14 px), DB inside */
@@ -179,7 +188,7 @@ function drawFixturesPlan(c,X,k){for(const f of S.fixtures){if(!fxVisible(f)||!f
   const p=fxSymbol(c,f,X,k,on?C.accent:fxColor(f),on?2:1.3);if(p&&on){c.strokeStyle=C.accent;c.lineWidth=1*k;c.setLineDash([3*k,2*k]);c.beginPath();c.arc(p[0],p[1],12*k,0,7);c.stroke();c.setLineDash([]);}}}
 function fxHit(p,tol,X){let best=null,bd=tol+8*KP;
   for(const f of S.fixtures){if(!fxVisible(f)||!fxPlanShown(f))continue;const A=fxPlan(f);if(!A)continue;let q=X.to(A.p[0],A.p[1]);
-    if(A.n){const d=f.type==='switch'?9:f.type==='pipe'?0:f.type==='powerbox'?5.5:11;q=[q[0]+A.n[0]*d*KP,q[1]+A.n[1]*d*KP];}
+    if(A.n){const d=f.type==='switch'?9:f.type==='pipe'?0:f.type==='powerbox'?5.5:FX[f.type].sym?7:11;q=[q[0]+A.n[0]*d*KP,q[1]+A.n[1]*d*KP];}
     const dd=dist(p,q);if(dd<bd){bd=dd;best=f;}}
   return best;}
 /* new fixture at a wall position (t = centre along the wall) or a ceiling point; reuses the last variant picked for that type */
@@ -227,10 +236,14 @@ function fxSvgPlan(f,M,col){const A=fxPlan(f);if(!A)return'';const P=M(A.p[0],A.
   if(A.top){const E0=M(A.p[0]+0.5,A.p[1]),mm=Math.hypot(E0[0]-P[0],E0[1]-P[1])*2,Z=fxSize(f),hw=Math.max(Z.w/2*mm,1),hh=Math.max(Z.h/2*mm,1),ca=Math.cos(A.ang),sa=Math.sin(A.ang);
     const pts=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([a,b])=>[P[0]+a*ca-b*sa,P[1]+a*sa+b*ca]);
     return s+`<polygon points="${pts.map(p=>p.map(r2).join(',')).join(' ')}"/><circle cx="${P[0]}" cy="${P[1]}" r="0.3" fill="${col}"/></g>`;}
-  if(!A.n&&f.type!=='clight'){const E0=M(A.p[0]+0.5,A.p[1]),mm=Math.hypot(E0[0]-P[0],E0[1]-P[1])*2,r=Math.max(fxSize(f).w/2*mm,0.9);
-    return s+`<circle cx="${P[0]}" cy="${P[1]}" r="${r}"${FX[f.type].ceil?' stroke-dasharray="0.8 0.6"':''}/><circle cx="${P[0]}" cy="${P[1]}" r="0.3" fill="${col}"/></g>`;}
+  if(!A.n&&f.type!=='clight'){const E0=M(A.p[0]+0.5,A.p[1]),mm=Math.hypot(E0[0]-P[0],E0[1]-P[1])*2,r=Math.max(fxSize(f).w/2*mm,FX[f.type].sym?1.7:0.9),T0=FX[f.type],dash=T0.ceil?' stroke-dasharray="0.8 0.6"':'';
+    const shape=T0.rect?`<rect x="${r2(P[0]-r)}" y="${r2(P[1]-r)}" width="${r2(2*r)}" height="${r2(2*r)}"${dash}/>`:`<circle cx="${P[0]}" cy="${P[1]}" r="${r}"${dash}/>`;
+    return s+shape+(T0.sym?`</g><text x="${P[0]}" y="${r2(P[1]+0.6)}" font-size="1.6" text-anchor="middle" fill="${col}">${T0.sym}</text>`:`<circle cx="${P[0]}" cy="${P[1]}" r="0.3" fill="${col}"/></g>`);}
   if(!A.n){const r=2.2,q=r*0.7;return s+`<circle cx="${P[0]}" cy="${P[1]}" r="${r}"/><path d="M${P[0]-q} ${P[1]-q}L${P[0]+q} ${P[1]+q}M${P[0]-q} ${P[1]+q}L${P[0]+q} ${P[1]-q}"/></g>`;}
   const n=A.n,u=A.u,V=fxVariant(f),kd=V&&V.k,d=f.type==='switch'?2.4:3,c=[P[0]+n[0]*d,P[1]+n[1]*d],r=1.6;
+  if(FX[f.type].sym){const T0=FX[f.type],E=M(A.p[0]+u[0]*0.5,A.p[1]+u[1]*0.5),mm=Math.hypot(E[0]-P[0],E[1]-P[1])*2,r=Math.max(T0.w/2*mm,1.7),cc=[P[0]+n[0]*(r+0.4),P[1]+n[1]*(r+0.4)];
+    const shape=T0.rect?`<rect x="${r2(cc[0]-r)}" y="${r2(cc[1]-r)}" width="${r2(2*r)}" height="${r2(2*r)}"/>`:`<circle cx="${r2(cc[0])}" cy="${r2(cc[1])}" r="${r2(r)}"/>`;
+    return s+shape+`</g><text x="${r2(cc[0])}" y="${r2(cc[1]+0.6)}" font-size="1.6" text-anchor="middle" fill="${col}">${T0.sym}</text>`;}
   if(f.type==='pipe'||f.type==='powerbox'){const E=M(A.p[0]+u[0]*0.5,A.p[1]+u[1]*0.5),mm=Math.hypot(E[0]-P[0],E[1]-P[1])*2;
     if(f.type==='pipe')return s+`<circle cx="${P[0]}" cy="${P[1]}" r="${Math.max(fxSize(f).w/2*mm,0.9)}"/><circle cx="${P[0]}" cy="${P[1]}" r="0.3" fill="${col}"/></g>`;
     const hl=Math.max(fxSize(f).w*mm,4)/2,o=0.8,th=1.8,q=(t,s2)=>[P[0]+u[0]*t+n[0]*(o+s2),P[1]+u[1]*t+n[1]*(o+s2)];

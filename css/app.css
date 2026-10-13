@@ -188,6 +188,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);paddin
 .dlg h2{margin:0;font-size:18px;font-weight:600}
 .toolbar .tsel{width:auto;font-size:13px;padding:4px 4px}
 
+/* ---------- sheet scratchpad ---------- */
+.sheet-page.sk-on{cursor:crosshair;touch-action:none}
+#sheet-draw svg{-webkit-user-select:none;user-select:none}
+#share-link{font-family:var(--f-mono);font-size:11px;word-break:break-all}
+
 /* ---------- saved viewpoints, print frame ---------- */
 .vrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}
 #print-frame{display:none}

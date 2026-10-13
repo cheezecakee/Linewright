@@ -104,7 +104,7 @@ function sheetSVG(L){const{pw,ph,k,m,tb}=L;let s=`<svg viewBox="0 0 ${pw} ${ph}"
   s+=`<line x1="${m}" y1="${y0}" x2="${pw-m}" y2="${y0}" stroke="${SH_INK}" stroke-width="0.5"/>`;let x=m;
   for(const[v,l,f]of cols){const w=(pw-2*m)*f;s+=shText(x+2.5,y0+5,l.toUpperCase(),{fs:1.9,fill:SH_MUTED})+shText(x+2.5,y0+11.5,v,{fs:l.startsWith('Title')?4.2:3.2,w:l.startsWith('Title')?600:500});
     x+=w;if(x<pw-m-1)s+=`<line x1="${r2(x)}" y1="${y0}" x2="${r2(x)}" y2="${ph-m}" stroke="${SH_INK}" stroke-width="0.3"/>`;}
-  return s+'</svg>';}
+  return s+sketchSVG()+'</svg>';}
 
 /* ---------- tables ---------- */
 function specRows(){const rows=[],done=new Set();
@@ -175,7 +175,7 @@ function renderSheet(){if(S.view!=='sheet')return;const L=sheetLayout();
   setPrintPage();}
 function setPrintPage(){let st=$('print-page');if(!st){st=document.createElement('style');st.id='print-page';document.head.appendChild(st);}
   const[pw,ph]=paperDims();st.textContent=`@media print{@page{size:${S.paper.size} ${S.paper.orient};margin:0}#sheet-draw svg{width:${pw}mm;height:${ph}mm;min-width:0}}`;}
-function renderSheetPanel(){const el=$('sh-elev');if(!el)return;const t=$('sh-title');if(t&&t!==document.activeElement){t.value=S.sheet.title||'';t.placeholder=sheetTitle();}
+function renderSheetPanel(){renderSketchUI();const el=$('sh-elev');if(!el)return;const t=$('sh-title');if(t&&t!==document.activeElement){t.value=S.sheet.title||'';t.placeholder=sheetTitle();}
   if(S.view==='sheet')sheetElevs();
   el.innerHTML=S.walls.map((w,i)=>{const e=S.sheet.elev.find(x=>x.wall===w.id);return`<div class="erow"><label class="inl"><input type="checkbox" data-ew="${w.id}"${e?' checked':''}> Wall ${i+1} · ${fmt(wallLen(w))} m${S.openings.some(o=>o.wall===w.id)?' · '+S.openings.filter(o=>o.wall===w.id).map(o=>o.type).join(', '):''}</label>
     <label class="inl"><input type="checkbox" data-ef="${w.id}"${e&&e.flip?' checked':''}${e?'':' disabled'}> other side</label></div>`;}).join('')||'<p class="note">No walls.</p>';
@@ -187,3 +187,84 @@ function renderSheetPanel(){const el=$('sh-elev');if(!el)return;const t=$('sh-ti
 $('sh-title').addEventListener('input',e=>{S.sheet.title=e.target.value;renderSheet();});$('sh-title').addEventListener('change',commit);
 $('sh-depth').addEventListener('input',e=>{S.sheet.depth=+e.target.value;$('o-sh-depth').textContent=fmt(S.sheet.depth);renderSheet();});$('sh-depth').addEventListener('change',commit);
 $('b-print').addEventListener('click',()=>{if(S.view!=='sheet')setView('sheet');renderSheet();setTimeout(()=>{try{window.print();}catch(e){flash("Printing isn't available here. Export the project and open the app in a browser tab to print.");}},50);});
+
+/* ---------- scratchpad: marks drawn on the sheet page ----------
+   S.sheet.draw = [{id, k, a, b, t}] in page millimetres, so they sit where you put them (they don't follow the drawings when the
+   scale or paper changes). Tools: line, arrow, rectangle (a, b = opposite corners), text (at a) and dimension (a→b; reads its
+   length at the sheet scale unless it has its own label). Selected marks show handles that are not printed (class np). */
+const SK_TOOLS=[['select','Select'],['line','Line'],['arrow','Arrow'],['rect','Rectangle'],['text','Text'],['dim','Dimension']];
+let skTool='select',skSel=null,skDrag=null;
+const skById=id=>S.sheet.draw.find(m=>m.id===id);
+const skLen=m=>Math.hypot(m.b[0]-m.a[0],m.b[1]-m.a[1]);
+const skLabel=m=>m.t||`${fmt(skLen(m)*(+S.paper.scale||50)/1000)} m`;
+function sketchSVG(){let s='';const f=r2;
+  const L=(a,b,sw,col,x)=>`<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" stroke="${col||SH_INK}" stroke-width="${sw}" stroke-linecap="round"${x||''}/>`;
+  for(const m of S.sheet.draw){const on=m.id===skSel;
+    if(m.k==='line')s+=L(m.a,m.b,0.35);
+    else if(m.k==='arrow'){s+=L(m.a,m.b,0.35);const l=skLen(m)||1,u=[(m.b[0]-m.a[0])/l,(m.b[1]-m.a[1])/l],h=Math.min(2.8,l*0.5);
+      s+=`<polygon points="${f(m.b[0])},${f(m.b[1])} ${f(m.b[0]-u[0]*h-u[1]*h*0.38)},${f(m.b[1]-u[1]*h+u[0]*h*0.38)} ${f(m.b[0]-u[0]*h+u[1]*h*0.38)},${f(m.b[1]-u[1]*h-u[0]*h*0.38)}" fill="${SH_INK}"/>`;}
+    else if(m.k==='rect')s+=`<rect x="${f(Math.min(m.a[0],m.b[0]))}" y="${f(Math.min(m.a[1],m.b[1]))}" width="${f(Math.abs(m.b[0]-m.a[0]))}" height="${f(Math.abs(m.b[1]-m.a[1]))}" fill="none" stroke="${SH_INK}" stroke-width="0.35"/>`;
+    else if(m.k==='text')(m.t||'').split('\n').forEach((ln,i)=>{s+=shText(m.a[0],m.a[1]+i*3.8,ln,{fs:3.2,fill:SH_INK});});
+    else if(m.k==='dim'){const l=skLen(m)||1,u=[(m.b[0]-m.a[0])/l,(m.b[1]-m.a[1])/l],n=[-u[1],u[0]],t=1.4;
+      s+=L(m.a,m.b,0.3)+L([m.a[0]-n[0]*t,m.a[1]-n[1]*t],[m.a[0]+n[0]*t,m.a[1]+n[1]*t],0.3)+L([m.b[0]-n[0]*t,m.b[1]-n[1]*t],[m.b[0]+n[0]*t,m.b[1]+n[1]*t],0.3)
+        +L([m.a[0]-u[0]*t*0.7+n[0]*t*0.7,m.a[1]-u[1]*t*0.7+n[1]*t*0.7],[m.a[0]+u[0]*t*0.7-n[0]*t*0.7,m.a[1]+u[1]*t*0.7-n[1]*t*0.7],0.3)
+        +L([m.b[0]-u[0]*t*0.7+n[0]*t*0.7,m.b[1]-u[1]*t*0.7+n[1]*t*0.7],[m.b[0]+u[0]*t*0.7-n[0]*t*0.7,m.b[1]+u[1]*t*0.7-n[1]*t*0.7],0.3);
+      let ang=Math.atan2(u[1],u[0])*180/Math.PI;if(ang>90||ang<-90)ang+=180;
+      const up=n[1]>0||(n[1]===0&&n[0]>0)?[-n[0],-n[1]]:n;   /* the normal that points up the page */
+      s+=shText((m.a[0]+m.b[0])/2+up[0]*1.4,(m.a[1]+m.b[1])/2+up[1]*1.4,skLabel(m),{fs:2.6,anchor:'middle',rot:Math.abs(ang)<0.01?0:ang,fill:SH_INK});}
+    if(on){const pts=m.k==='text'?[m.a]:[m.a,m.b];
+      if(m.k!=='text')s+=L(m.a,m.b,0.9,'var(--accent)',' opacity=".25" class="np"');
+      for(const p of pts)s+=`<rect class="np" x="${f(p[0]-1.1)}" y="${f(p[1]-1.1)}" width="2.2" height="2.2" fill="var(--paper)" stroke="var(--accent)" stroke-width="0.35"/>`;}}
+  return s;}
+function skPoint(e){const svg=$('sheet-draw').querySelector('svg');if(!svg)return null;const m=svg.getScreenCTM();if(!m)return null;
+  const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const p=pt.matrixTransform(m.inverse());return[p.x,p.y,m.a];}
+function skSnap(e,p,from,tool){let x=e.altKey?p[0]:Math.round(p[0]*2)/2,y=e.altKey?p[1]:Math.round(p[1]*2)/2;
+  if(from&&e.shiftKey&&!e.altKey){const dx=x-from[0],dy=y-from[1];
+    if(tool==='rect'){const d=Math.max(Math.abs(dx),Math.abs(dy));x=from[0]+Math.sign(dx||1)*d;y=from[1]+Math.sign(dy||1)*d;}
+    else{const l=Math.hypot(dx,dy),a=Math.round(Math.atan2(dy,dx)/(Math.PI/12))*(Math.PI/12);x=from[0]+Math.cos(a)*l;y=from[1]+Math.sin(a)*l;}}
+  return[x,y];}
+function skHit(m,p,tol){
+  if(m.k==='text'){const ls=(m.t||'').split('\n'),w=Math.max(2,...ls.map(l=>l.length))*1.9+1;return p[0]>=m.a[0]-1&&p[0]<=m.a[0]+w&&p[1]>=m.a[1]-3.6&&p[1]<=m.a[1]+(ls.length-1)*3.8+1;}
+  if(m.k==='rect'){const x0=Math.min(m.a[0],m.b[0]),x1=Math.max(m.a[0],m.b[0]),y0=Math.min(m.a[1],m.b[1]),y1=Math.max(m.a[1],m.b[1]);
+    return[[[x0,y0],[x1,y0]],[[x1,y0],[x1,y1]],[[x1,y1],[x0,y1]],[[x0,y1],[x0,y0]]].some(([a,b])=>segDist(p,a,b)<=tol);}
+  return segDist(p,m.a,m.b)<=tol;}
+$('sheet-draw').addEventListener('pointerdown',e=>{if(S.view!=='sheet'||e.button!==0)return;const q=skPoint(e);if(!q)return;
+  const p=[q[0],q[1]],tol=7/(q[2]||1);   /* 7 CSS px in page mm */
+  if(skTool==='select'){
+    const cur=skSel&&skById(skSel);
+    if(cur){const ends=cur.k==='text'?[['a',cur.a]]:[['a',cur.a],['b',cur.b]];
+      for(const[nm,pt]of ends)if(Math.hypot(p[0]-pt[0],p[1]-pt[1])<=tol*1.2){skDrag={m:cur,mode:nm,p0:p,a0:[...cur.a],b0:[...cur.b],moved:false};$('sheet-draw').setPointerCapture(e.pointerId);return;}}
+    let hit=null;for(const m of S.sheet.draw.slice().reverse())if(skHit(m,p,tol)){hit=m;break;}
+    skSel=hit?hit.id:null;
+    if(hit){skDrag={m:hit,mode:'move',p0:p,a0:[...hit.a],b0:[...hit.b],moved:false};$('sheet-draw').setPointerCapture(e.pointerId);}
+    renderSketchUI();renderSheet();return;}
+  e.preventDefault();
+  const a=skSnap(e,p,null,skTool);
+  if(skTool==='text'){const m={id:uid('k'),k:'text',a,b:[...a],t:'Text'};S.sheet.draw.push(m);skSel=m.id;skTool='select';commit();renderSketchUI();renderSheet();
+    const inp=$('sk-text');if(inp){inp.focus();inp.select();}return;}
+  const m={id:uid('k'),k:skTool,a,b:[...a],t:''};S.sheet.draw.push(m);skSel=m.id;
+  skDrag={m,mode:'create',p0:p,a0:[...a],b0:[...a],moved:false};$('sheet-draw').setPointerCapture(e.pointerId);renderSheet();});
+$('sheet-draw').addEventListener('pointermove',e=>{if(!skDrag)return;const q=skPoint(e);if(!q)return;const p=[q[0],q[1]],d=skDrag,m=d.m;d.moved=true;
+  if(d.mode==='create'){m.b=skSnap(e,p,m.a,m.k);}
+  else if(d.mode==='a'){const o=skSnap(e,p,m.k==='text'?null:d.b0,m.k);m.a=o;if(m.k==='text')m.b=[...o];}
+  else if(d.mode==='b'){m.b=skSnap(e,p,d.a0,m.k);}
+  else{const dx=p[0]-d.p0[0],dy=p[1]-d.p0[1],r=e.altKey?v=>v:v=>Math.round(v*2)/2;m.a=[r(d.a0[0]+dx),r(d.a0[1]+dy)];m.b=[r(d.b0[0]+dx),r(d.b0[1]+dy)];}
+  renderSheet();});
+const skEnd=()=>{if(!skDrag)return;const d=skDrag,m=d.m;skDrag=null;
+  if(d.mode==='create'){if(skLen(m)<1){S.sheet.draw=S.sheet.draw.filter(x=>x!==m);skSel=null;}else skTool='select';}
+  if(d.moved||d.mode==='create')commit();renderSketchUI();renderSheet();};
+$('sheet-draw').addEventListener('pointerup',skEnd);$('sheet-draw').addEventListener('pointercancel',skEnd);
+function skCancel(){skTool='select';skSel=null;skDrag=null;renderSketchUI();renderSheet();}
+function skDelete(){if(!skSel)return;S.sheet.draw=S.sheet.draw.filter(m=>m.id!==skSel);skSel=null;commit();renderSketchUI();renderSheet();}
+function renderSketchUI(){const t=$('sk-tools');if(!t)return;
+  t.innerHTML=SK_TOOLS.map(([k,l])=>`<button type="button" data-sk="${k}" aria-pressed="${skTool===k}">${l}</button>`).join('');
+  t.querySelectorAll('[data-sk]').forEach(b=>b.addEventListener('click',()=>{skTool=b.dataset.sk;if(skTool!=='select')skSel=null;renderSketchUI();renderSheet();}));
+  $('sheet-draw').classList.toggle('sk-on',skTool!=='select');
+  const m=skSel&&skById(skSel),pr=$('sk-props');
+  if(!m)skSel=null;
+  pr.innerHTML=m&&(m.k==='text')?`<label class="fl" for="sk-text">Text</label><textarea id="sk-text" class="tx" rows="2">${esc(m.t)}</textarea>`:
+    m&&m.k==='dim'?`<label class="fl" for="sk-text">Label (empty = measured at 1:${S.paper.scale}: ${fmt(skLen(m)*(+S.paper.scale||50)/1000)} m)</label><input id="sk-text" class="tx" value="${esc(m.t)}">`:'';
+  const inp=$('sk-text');if(inp){inp.addEventListener('input',()=>{m.t=inp.value;renderSheet();});inp.addEventListener('change',commit);}
+  $('sk-del').disabled=!m;$('sk-clear').disabled=!S.sheet.draw.length;}
+$('sk-del').addEventListener('click',skDelete);
+$('sk-clear').addEventListener('click',()=>{if(!S.sheet.draw.length)return;S.sheet.draw=[];skSel=null;commit();renderSketchUI();renderSheet();flash('Scratchpad cleared. Undo brings it back.');});

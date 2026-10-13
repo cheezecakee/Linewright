@@ -82,7 +82,7 @@ function actCopy(){if(!sel.length){flash('Select something to copy first.');retu
   CLIP={objects:JSON.parse(JSON.stringify(list)),groups:JSON.parse(JSON.stringify(S.groups.filter(g=>gids.has(g.id)))),fixtures:JSON.parse(JSON.stringify(S.fixtures.filter(f=>f.obj&&oids.has(f.obj)))),n:0};flash(`Copied ${sel.length} item${sel.length>1?'s':''}${list.length>selBoxes().length?' with attached items':''}.`);}
 function actPaste(){if(!CLIP){flash('Nothing copied yet. Select something and press '+keyLabel(KM.copy)+'.');return;}CLIP.n++;const d=0.2*CLIP.n;
   sel=cloneSet(CLIP.objects,d,d,'',CLIP.groups);psel=null;commit();if(S.view==='sheet')setView('plan');renderSel();renderRooms();flash('Pasted');}
-function actDel(){if(psel&&!sel.length){delPsel();return;}if(!sel.length||guardLocked())return;const ids=new Set(selBoxes().map(o=>o.id));
+function actDel(){if(S.view==='sheet'&&skSel){skDelete();return;}if(psel&&!sel.length){delPsel();return;}if(!sel.length||guardLocked())return;const ids=new Set(selBoxes().map(o=>o.id));
   const kids=S.objects.filter(o=>o.parent&&ids.has(o.parent)&&!ids.has(o.id)).length;
   const nfx=S.fixtures.filter(f=>f.obj&&ids.has(f.obj)).length;
   S.objects=S.objects.filter(o=>!ids.has(o.id));for(const o of S.objects)if(o.parent&&ids.has(o.parent)){o.parent=null;o.po=null;}
@@ -100,7 +100,7 @@ function actHide(){if(!sel.length)return;for(const k of sel){const id=k.slice(2)
 function actLockSel(){if(!sel.length)return;const lock=!sel.every(k=>{const id=k.slice(2);return k[0]==='b'?byId(id)?.locked:grpById(id)?.locked;});
   for(const k of sel){const id=k.slice(2);if(k[0]==='b'){const o=byId(id);if(o)o.locked=lock;}else{const g=grpById(id);if(g)g.locked=lock;}}
   commit();renderSel();flash(lock?'Locked':'Unlocked');}
-function actDesel(){if(draft){finishDraft();return;}if(tool==='measure'&&MS.pts.length){MS.pts=[];drawAll();return;}if(tool!=='select'){setTool('select');return;}
+function actDesel(){if(S.view==='sheet'&&(skTool!=='select'||skSel)){skCancel();return;}if(draft){finishDraft();return;}if(tool==='measure'&&MS.pts.length){MS.pts=[];drawAll();return;}if(tool!=='select'){setTool('select');return;}
   if(layerMode()&&activeLayer){activeLayer=null;renderLayers();drawAll();return;}if(psel){selectP(null);return;}if(sel.length){sel=[];renderSel();}}
 function setToggle(k,v){S[k]=v;save();syncToggles();if(k==='lockCam'){syncCamUI();renderViews();}renderLegend();drawAll();}
 
@@ -167,6 +167,7 @@ function isTyping(t){if(!t)return false;if(t.isContentEditable)return true;if(t.
 window.addEventListener('keydown',e=>{
   /* the New project dialog takes the keyboard while it is open: Esc closes it, nothing else fires */
   if(typeof newDlgOpen==='function'&&newDlgOpen()){if(e.key==='Escape'){e.preventDefault();closeNewDlg();}return;}
+  if(typeof shareOpen==='function'&&shareOpen()){if(e.key==='Escape'){e.preventDefault();closeShare();}return;}
   if(typeof glowOpen==='function'&&glowOpen()&&e.key==='Escape'){e.preventDefault();closeGlow();return;}
   if(capture){e.preventDefault();e.stopPropagation();if(e.key==='Escape'&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey){capture=null;renderKeys();return;}
     const c=comboOf(e);if(!c)return;let note='';for(const a of ACTIONS)if(a[0]!==capture&&KM[a[0]]===c){KM[a[0]]='';note=` (removed from "${a[1]}")`;}

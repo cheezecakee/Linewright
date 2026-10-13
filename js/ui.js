@@ -73,6 +73,7 @@ $('b-clr').addEventListener('click',()=>setToggle('showClr',!S.showClr));
 $('b-light').addEventListener('click',()=>setToggle('showLight',!S.showLight));
 $('b-paper').addEventListener('click',()=>RUN.paper());
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+$('fx-type').innerHTML=Object.keys(FX).map(t=>`<option value="${t}">${esc(FX[t].label)}</option>`).join('');$('fx-type').value='outlet';
 $('fx-type').addEventListener('change',()=>{if(tool!=='fixture')setTool('fixture');else drawAll();});
 function updToolbar(){$('b-undo').disabled=hi<=0;$('b-redo').disabled=hi>=hist.length-1;
   const n=sel.length;['b-dup','b-rot','b-rot15','b-hide','b-locksel','b-copy'].forEach(i=>$(i).disabled=!n);
@@ -186,18 +187,38 @@ function inlineRename(btn){const k=btn.dataset.pick,id=k.slice(2),obj=k[0]==='g'
   inp.addEventListener('blur',()=>finish(true));}
 
 /* ---------- add ---------- */
-function renderAddButtons(){const cats={};for(const k in PRESETS){const c=PRESETS[k].category||'Other';(cats[c]=cats[c]||[]).push(k);}
-  let h='<div class="addcat"><span class="fl">Basic</span><div class="chips"><button type="button" data-add="box">Box</button><button type="button" data-add="shape">Shape (extruded)</button></div></div>';
-  for(const c in cats)h+=`<div class="addcat"><span class="fl">${esc(c)}</span><div class="chips">${cats[c].map(k=>`<button type="button" data-add="${k}">${esc(PRESETS[k].label)}</button>`).join('')}</div></div>`;
+/* catalog: a category filter and a search box over every preset (plus Box and Shape); with neither set, the last few used items
+   come first and the rest are grouped by category. The filter state lives in these two variables, not in the project. */
+let addCat='',addQ='';
+const BASIC=[['box','Box','Basic'],['shape','Shape (extruded)','Basic']];
+function recentAdds(){try{return JSON.parse(localStorage.getItem('rsg-recent')||'[]').filter(k=>PRESETS[k]);}catch(e){return[];}}
+function noteRecent(k){if(!PRESETS[k])return;try{localStorage.setItem('rsg-recent',JSON.stringify([k,...recentAdds().filter(x=>x!==k)].slice(0,6)));}catch(e){}}
+function catalogItems(){return BASIC.concat(Object.keys(PRESETS).map(k=>[k,PRESETS[k].label,PRESETS[k].category||'Other']));}
+function renderAddButtons(){const sel=$('add-cat');if(!sel)return;const items=catalogItems(),cats=[];
+  for(const it of items)if(!cats.includes(it[2]))cats.push(it[2]);
+  sel.innerHTML=`<option value="">All categories (${items.length})</option>`+cats.map(c=>`<option value="${esc(c)}">${esc(c)} (${items.filter(i=>i[2]===c).length})</option>`).join('');
+  if(!cats.includes(addCat))addCat='';sel.value=addCat;$('add-q').value=addQ;renderAddChips();}
+function renderAddChips(){const el=$('add-chips');if(!el)return;const items=catalogItems(),q=addQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hay=it=>`${it[1]} ${it[2]} ${it[0]} ${PRESETS[it[0]]?PRESETS[it[0]].tag||'':''}`.toLowerCase();
+  let list=items.filter(it=>(!addCat||it[2]===addCat)&&q.every(w=>hay(it).includes(w)));
+  const chip=it=>`<button type="button" data-add="${it[0]}" title="${esc(it[2])}">${esc(it[1])}</button>`;
+  let h='';
+  if(!list.length)h='<p class="note">Nothing in the catalog matches. Try another word or "All categories".</p>';
+  else if(q.length||addCat){h=`<div class="chips">${list.map(chip).join('')}</div>`;}
+  else{const rec=recentAdds();
+    if(rec.length)h+=`<div class="addcat"><span class="fl">Recent</span><div class="chips">${rec.map(k=>chip([k,PRESETS[k].label,PRESETS[k].category])).join('')}</div></div>`;
+    for(const c of[...new Set(items.map(i=>i[2]))])h+=`<div class="addcat"><span class="fl">${esc(c)}</span><div class="chips">${items.filter(i=>i[2]===c).map(chip).join('')}</div></div>`;}
   h+='<div class="chips"><button type="button" data-add="clear">Clear furniture</button></div>';
-  const el=$('add-chips');el.innerHTML=h;
+  el.innerHTML=h;
   el.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>addItem(b.dataset.add)));}
+$('add-q').addEventListener('input',e=>{addQ=e.target.value;renderAddChips();});
+$('add-cat').addEventListener('change',e=>{addCat=e.target.value;renderAddChips();});
 function addItem(kind){const wb=worldBounds();
   if(kind==='box'||kind==='shape'){const sh=kind==='shape';const o=normObj({id:uid('b'),n:(sh?'Shape ':'Box ')+(S.objects.filter(x=>!x.g).length+1),x:wb.x0+1,y:0,z:wb.z0+1.5,w:0.5,d:0.5,h:sh?0.75:0.5,poly:sh?SHAPES.round.pts():null});S.objects.push(o);sel=['b:'+o.id];}
   else if(kind==='clear'){const n=S.objects.filter(o=>!isLocked(o)).length;if(!n){flash('Nothing to clear. Locked items stay.');return;}
     S.objects=S.objects.filter(isLocked);sel=[];cleanGroups();commit();renderSel();flash('Furniture cleared. Locked items stay. Undo brings everything back.');return;}
   else if(PRESETS[kind]){const P=PRESETS[kind],g={id:uid('g'),n:P.label,vis:true,preset:{type:kind,p:{...P.defaults},rot:0},tag:P.tag||'',notes:'',rot:0,locked:false};
-    S.groups.push(g);P.fix(g.preset.p);regen(g,{x:wb.x0+0.4,y:P.y0?P.y0(g.preset.p):0,z:P.wall?wb.z0:wb.z0+1.6});sel=['g:'+g.id];}
+    S.groups.push(g);P.fix(g.preset.p);regen(g,{x:wb.x0+0.4,y:P.y0?P.y0(g.preset.p):0,z:P.wall?wb.z0:wb.z0+1.6});sel=['g:'+g.id];noteRecent(kind);}
   commit();if(S.panels[S.view]!=='objects')setPanel('objects');renderSel();}
 
 /* ---------- tags + legend ---------- */
@@ -245,6 +266,43 @@ stage.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;stage.classList
   const json=fs.find(f=>/\.json$/i.test(f.name)||f.type==='application/json');if(json)readJsonFile(json);
   const im=fs.filter(f=>f.type&&f.type.startsWith('image/'));if(im.length)addFiles(im);
   if(!json&&!im.length)flash('Drop images or an exported .json file.');});
+
+/* ---------- share ----------
+   A shared project is the exported scene (no images). As a link it travels in the address after #p=: 'z.' + gzip, or 'r.' + the
+   raw text when the browser has no CompressionStream, as base64url. Opening such a link asks first, then imports it like a file
+   (so it goes through migrate() and Undo brings the previous project back). Links only work where the app is hosted. */
+const b64u=bytes=>{let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
+const unb64u=t=>{t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;};
+async function packProject(){const bytes=new TextEncoder().encode(exportScene(true));
+  if(typeof CompressionStream==='function'){const cs=new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));return'z.'+b64u(new Uint8Array(await new Response(cs).arrayBuffer()));}
+  return'r.'+b64u(bytes);}
+async function unpackProject(t){const kind=t.slice(0,2),bytes=unb64u(t.slice(2));
+  if(kind==='r.')return new TextDecoder().decode(bytes);
+  if(kind==='z.'){if(typeof DecompressionStream!=='function')throw new Error("This browser can't open compressed links. Ask for the exported file instead.");
+    const ds=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));return new TextDecoder().decode(await new Response(ds).arrayBuffer());}
+  throw new Error("That link isn't a Linewright project.");}
+function shareOpen(){return!$('share-dlg').hidden;}
+function closeShare(){$('share-dlg').hidden=true;$('b-share').focus();}
+async function openShare(){const dlg=$('share-dlg'),box=$('share-link'),note=$('share-note'),copy=$('share-copy'),file=$('share-file');
+  dlg.hidden=false;box.value='Preparing the link…';copy.disabled=true;note.textContent='';
+  const name=`linewright-${new Date().toISOString().slice(0,10)}.json`,f=new File([exportScene()],name,{type:'application/json'});
+  file.disabled=!(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]}));
+  file.onclick=async()=>{try{await navigator.share({files:[f],title:'Linewright project'});}catch(e){if(e&&e.name!=='AbortError')flash("Couldn't open the share sheet. Download the file instead.");}};
+  try{const link=location.href.split('#')[0]+'#p='+await packProject();box.value=link;copy.disabled=false;
+    const kb=Math.ceil(link.length/1024),hosted=/^https?:$/.test(location.protocol);
+    note.textContent=`${kb} KB link${hosted?'':' — the app is open from a file, so this link only works for someone who opens the same file; share the exported file instead'}${link.length>60000?'. Very long links can be cut off by chat apps; send the file instead':''}. Images aren't included.`;
+    copy.onclick=()=>{navigator.clipboard.writeText(link).then(()=>flash('Link copied.'),()=>{box.select();flash('Press Ctrl+C to copy the link.');});};}
+  catch(e){box.value='';note.textContent="Couldn't build a link here. Download the file instead.";}}
+async function openSharedLink(){const t=location.hash.slice(3);
+  try{history.replaceState(null,'',location.href.split('#')[0]);}catch(e){}
+  try{const json=await unpackProject(t);
+    if(!confirm('This link contains a Linewright project. Open it? It replaces the project on screen; Undo brings the previous one back.'))return;
+    importText(json);}
+  catch(e){flash(e.message||"Couldn't open that link.");}}
+$('b-share').addEventListener('click',openShare);
+$('share-close').addEventListener('click',closeShare);
+$('share-save').addEventListener('click',()=>doExport());
+$('share-dlg').addEventListener('click',e=>{if(e.target===$('share-dlg'))closeShare();});
 
 /* ---------- status ---------- */
 let flashMsg='',flashT=null;
@@ -313,7 +371,7 @@ function newProject(quiet){const room=$('new-room').checked,W=Math.max(1.2,parse
     const ww=Math.min(1.4,W-0.4),dw=Math.min(0.85,W-0.3);
     m.openings=[normOpening({id:uid('op'),wall:m.walls[0].id,type:'window',off:+((W-ww)/2).toFixed(4),w:ww,h:1.2,sill:0.9}),
       normOpening({id:uid('op'),wall:m.walls[2].id,type:'door',off:Math.min(0.4,W-dw-0.05),w:dw,h:2.1,hinge:'a',side:1,angle:90,entrance:true})];}
-  Object.assign(S,m,keep);S.scenario=null;S.ghost=null;S.traceHL=[];S.sheet={title:'',elev:[],depth:1.2};
+  Object.assign(S,m,keep);S.scenario=null;S.ghost=null;S.traceHL=[];S.sheet={title:'',elev:[],depth:1.2,draw:[]};skSel=null;
   sel=[];psel=null;activeLayer=null;cmOn=null;MS.pts=[];CLIP=null;
   Object.assign(S,room?spawnView():{cx:1.3,cz:3,eye:1.6,yaw:0,fov:72});clampCam();
   $('new-dlg').hidden=true;commit();setView(S.view);renderAll();size();
@@ -345,3 +403,4 @@ clampCam();commit();
 setView(S.view);renderAll();size();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawAll);
 initStore();
+if(location.hash.indexOf('#p=')===0)openSharedLink();
