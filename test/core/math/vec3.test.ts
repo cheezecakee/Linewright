@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { vec3, add, sub, scale, dot, length } from "../../../src/core/math/vec3";
+import {
+  vec3,
+  add,
+  sub,
+  scale,
+  dot,
+  length,
+} from "../../../src/core/math/vec3";
 
 describe("vec3", () => {
   test("builds a vector from its components", () => {
